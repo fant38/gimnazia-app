@@ -71,6 +71,12 @@
   .tt .lt { flex: 0 0 auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
   .tt li.chg .ls { color: var(--warn); font-weight: 600; }
   .tt-title { font-size: 17px; font-weight: 700; margin-bottom: 2px; }
+  details.settings summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; align-items: center; justify-content: space-between; }
+  details.settings summary::-webkit-details-marker { display: none; }
+  details.settings summary::after { content: '▾'; color: var(--muted); transition: transform .15s; }
+  details.settings[open] summary::after { transform: rotate(180deg); }
+  .settings-body { padding-top: 10px; }
+  .settings-body .btn-wide.notify:last-child { margin-bottom: 0; }
   .empty { text-align: center; color: var(--muted); padding: 32px 16px; }
   .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 16px; }
   #viewer { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.94); display: none; overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y pinch-zoom; }
@@ -93,7 +99,7 @@
   const W = window.WebApp || null;
   const $ = (s) => document.querySelector(s);
   const main = $('#main');
-  let data = null, tab = 'schedule', cls = null, menuDay = null, foodGroup = null, myClasses = [];
+  let data = null, tab = 'schedule', cls = null, menuDay = null, foodGroup = null, myClasses = [], settingsOpen = false;
   try { const t = localStorage.getItem('miniapp.tab'); tab = ['news', 'menu'].includes(t) ? t : 'schedule'; cls = localStorage.getItem('miniapp.class'); foodGroup = localStorage.getItem('miniapp.food'); myClasses = JSON.parse(localStorage.getItem('miniapp.myclasses') || '[]'); } catch (e) { /* хранилище недоступно */ }
 
   function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -226,13 +232,19 @@
     // только актуальные: день изменения сегодня или позже (по часам телефона — даже если сайт давно не обновлялся)
     const today = isoDay(new Date());
     const actual = (data.changes || []).filter((p) => !p.until || p.until >= today).sort((a, b) => (a.until || '').localeCompare(b.until || ''));
-    h += '<h2>Изменения в расписании</h2>';
-    const subLink = (data.channel || {}).subscribe;
-    if (subLink) h += '<button class="btn-wide notify" data-open="' + esc(subLink) + '">🔔 Присылать изменения мне в MAX</button>';
-    const clsLink = (data.channel || {}).classes;
-    if (clsLink) h += '<button class="btn-wide notify" data-open="' + esc(clsLink) + '">🏫 Выбрать класс — только мои уроки</button>';
-    h += actual.length ? actual.map((p) => post({ ...p, badge: untilLabel(p.until, today) }, false, false)).join('')
-      : '<div class="card muted">Актуальных изменений нет</div>';
+    // посты об изменениях — только если расписания текстом нет (иначе изменения уже видны в расписании класса)
+    if (!data.timetable) {
+      h += '<h2>Изменения в расписании</h2>';
+      h += actual.length ? actual.map((p) => post({ ...p, badge: untilLabel(p.until, today) }, false, false)).join('')
+        : '<div class="card muted">Актуальных изменений нет</div>';
+    }
+    const subLink = (data.channel || {}).subscribe, clsLink = (data.channel || {}).classes;
+    if (subLink || clsLink) {
+      h += '<details class="card settings"' + (settingsOpen ? ' open' : '') + '><summary data-settings>Настройки расписания</summary><div class="settings-body">' +
+        (subLink ? '<button class="btn-wide notify" data-open="' + esc(subLink) + '">🔔 Присылать изменения мне в MAX</button>' : '') +
+        (clsLink ? '<button class="btn-wide notify" data-open="' + esc(clsLink) + '">🏫 Выбрать класс — только мои уроки</button>' : '') +
+        '</div></details>';
+    }
     if (!h) h = '<div class="empty">Расписание пока не опубликовано</div>';
     return h;
   }
@@ -301,6 +313,7 @@
     if (nav) { tab = nav.dataset.tab; try { localStorage.setItem('miniapp.tab', tab); } catch (x) { /* не важно */ } draw(); window.scrollTo(0, 0); return; }
     const dayChip = t.closest('[data-day]');
     if (dayChip) { menuDay = dayChip.dataset.day; draw(); return; }
+    if (t.closest('[data-settings]')) { settingsOpen = !t.closest('details').open; return; }
     const myChip = t.closest('[data-mycls]');
     if (myChip) {
       const k = myChip.dataset.mycls;
