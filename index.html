@@ -180,7 +180,6 @@
     return diff === 0 ? 'на сегодня, ' + day : diff === 1 ? 'на завтра, ' + day : 'на ' + day;
   }
 
-  const money = (v) => v == null ? '' : v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₽';
   function dayName(iso, today) {
     const d = new Date(iso + 'T00:00:00'), diff = Math.round((d - new Date(today + 'T00:00:00')) / 864e5);
     const s = d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -202,10 +201,10 @@
     const day = days.find((d) => d.date === menuDay);
     h += '<div class="chips">' + days.map((d) => '<button data-day="' + d.date + '"' + (d.date === menuDay ? ' class="on"' : '') + '>' + esc(dayName(d.date, today)) + '</button>').join('') + '</div>';
     h += day.meals.map((m) => '<div class="card"><div class="meal-head"><b>' + esc(m.name) + '</b><span class="muted">' +
-      [m.kcal ? m.kcal + ' ккал' : '', money(m.price)].filter(Boolean).join(' · ') + '</span></div>' +
+      (m.kcal ? m.kcal + ' ккал' : '') + '</span></div>' +
       m.items.map((i) => '<div class="dish"><div class="nm">' + esc(i.dish) + '<div class="muted">' +
         [i.weight ? i.weight + ' г' : '', i.kcal != null ? i.kcal + ' ккал' : ''].filter(Boolean).join(' · ') +
-        '</div></div><div class="pr">' + money(i.price) + '</div></div>').join('') +
+        '</div></div></div>').join('') +
       (m.pdf ? '<div class="row"><button class="link" data-open="' + esc(m.pdf) + '">Меню на неделю (PDF)</button></div>' : '') + '</div>').join('');
     return h;
   }
