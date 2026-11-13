@@ -133,6 +133,7 @@
       '<div class="date">' + fmtDate(p.ts) + (p.badge ? '<span class="badge">' + esc(p.badge) + '</span>' : '') + '</div>' +
       (p.text ? '<div class="text' + (long ? ' clip' : '') + '">' + render(p.text, p.markup) + '</div>' + (long ? '<button class="more">Читать полностью</button>' : '') : '') +
       (media.length ? '<div class="gallery' + (compact ? ' thumbs' : media.length > 1 ? ' many' : '') + '">' + media.join('') + '</div>' : '') +
+      (p.pdf ? '<div class="row"><button class="btn-wide" data-open="' + esc(p.pdf) + '">📄 Изменения (PDF)</button></div>' : '') +
       (p.url ? '<div class="row"><button class="link" data-open="' + esc(p.url) + '">Открыть в канале' + ((p.videos || []).length ? ' (видео)' : '') + '</button>' + (media.length > 1 ? '<span class="muted">· ' + media.length + ' фото</span>' : '') + '</div>' : '') +
       '</div>';
   }
