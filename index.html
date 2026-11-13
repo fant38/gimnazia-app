@@ -80,8 +80,8 @@
   const W = window.WebApp || null;
   const $ = (s) => document.querySelector(s);
   const main = $('#main');
-  let data = null, tab = 'schedule', cls = null, menuDay = null;
-  try { const t = localStorage.getItem('miniapp.tab'); tab = ['news', 'menu'].includes(t) ? t : 'schedule'; cls = localStorage.getItem('miniapp.class'); } catch (e) { /* хранилище недоступно */ }
+  let data = null, tab = 'schedule', cls = null, menuDay = null, foodGroup = null;
+  try { const t = localStorage.getItem('miniapp.tab'); tab = ['news', 'menu'].includes(t) ? t : 'schedule'; cls = localStorage.getItem('miniapp.class'); foodGroup = localStorage.getItem('miniapp.food'); } catch (e) { /* хранилище недоступно */ }
 
   function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   function safeUrl(u) { return /^https?:\/\//i.test(u || '') ? u : null; }
@@ -187,26 +187,26 @@
     return diff === 0 ? 'Сегодня' : diff === 1 ? 'Завтра, ' + s : s;
   }
   function viewMenu() {
-    const all = ((data.menu || {}).days || []);
-    if (!all.length) return '<div class="empty">Меню пока не выложено</div>';
+    const groups = ((data.menu || {}).groups || []);
+    if (!groups.length) return '<div class="empty">Меню пока не выложено</div>';
+    if (!groups.some((g) => g.id === foodGroup)) foodGroup = groups[0].id;
+    const g = groups.find((x) => x.id === foodGroup);
+    let h = groups.length > 1 ? '<div class="chips">' + groups.map((x) => '<button data-food="' + esc(x.id) + '"' + (x.id === foodGroup ? ' class="on"' : '') + '>' + esc(x.title) + '</button>').join('') + '</div>' : '';
     const today = isoDay(new Date());
-    let days = all.filter((d) => d.date >= today), note = '';
-    if (!days.length) {   // нового меню ещё нет — показываем последнее
-      days = all.slice(-1);
-      note = '<div class="card muted">Меню на сегодня ещё не выложено. Последнее — за ' + new Date(days[0].date + 'T00:00:00').toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' }) + '.</div>';
+    let days = g.days.filter((d) => d.date >= today);
+    if (!days.length) {   // меню на эту неделю ещё не выложено — показываем последнюю
+      days = g.days;
+      h += '<div class="card muted">Меню на эти дни ещё не выложено — показано меню прошлой недели.</div>';
     }
     if (!days.some((d) => d.date === menuDay)) menuDay = days[0].date;
     const day = days.find((d) => d.date === menuDay);
-    let h = note;
-    if (days.length > 1) h += '<div class="chips">' + days.map((d) => '<button data-day="' + d.date + '"' + (d.date === menuDay ? ' class="on"' : '') + '>' + esc(dayName(d.date, today)) + '</button>').join('') + '</div>';
-    else if (!note) h += '<h2>' + esc(dayName(day.date, today)) + '</h2>';
+    h += '<div class="chips">' + days.map((d) => '<button data-day="' + d.date + '"' + (d.date === menuDay ? ' class="on"' : '') + '>' + esc(dayName(d.date, today)) + '</button>').join('') + '</div>';
     h += day.meals.map((m) => '<div class="card"><div class="meal-head"><b>' + esc(m.name) + '</b><span class="muted">' +
       [m.kcal ? m.kcal + ' ккал' : '', money(m.price)].filter(Boolean).join(' · ') + '</span></div>' +
       m.items.map((i) => '<div class="dish"><div class="nm">' + esc(i.dish) + '<div class="muted">' +
-        [i.section, i.weight ? i.weight + ' г' : '', i.kcal != null ? i.kcal + ' ккал' : '',
-         i.protein != null ? 'Б ' + i.protein + ' · Ж ' + i.fat + ' · У ' + i.carbs : ''].filter(Boolean).map(esc).join(' · ') +
-        '</div></div><div class="pr">' + money(i.price) + '</div></div>').join('') + '</div>').join('');
-    h += '<div class="row" style="justify-content:center"><button class="link" data-open="' + esc(day.url) + '">Меню на сайте школы (таблица)</button></div>';
+        [i.weight ? i.weight + ' г' : '', i.kcal != null ? i.kcal + ' ккал' : ''].filter(Boolean).join(' · ') +
+        '</div></div><div class="pr">' + money(i.price) + '</div></div>').join('') +
+      (m.pdf ? '<div class="row"><button class="link" data-open="' + esc(m.pdf) + '">Меню на неделю (PDF)</button></div>' : '') + '</div>').join('');
     return h;
   }
 
@@ -237,6 +237,8 @@
     if (nav) { tab = nav.dataset.tab; try { localStorage.setItem('miniapp.tab', tab); } catch (x) { /* не важно */ } draw(); window.scrollTo(0, 0); return; }
     const dayChip = t.closest('[data-day]');
     if (dayChip) { menuDay = dayChip.dataset.day; draw(); return; }
+    const foodChip = t.closest('[data-food]');
+    if (foodChip) { foodGroup = foodChip.dataset.food; try { localStorage.setItem('miniapp.food', foodGroup); } catch (x) { /* не важно */ } draw(); return; }
     const chip = t.closest('[data-cls]');
     if (chip) { cls = chip.dataset.cls; try { localStorage.setItem('miniapp.class', cls); } catch (x) { /* не важно */ } draw(); return; }
     if (t.closest('.more')) { const card = t.closest('.card'); card.querySelector('.text').classList.remove('clip'); t.remove(); return; }
