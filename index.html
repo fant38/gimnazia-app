@@ -139,10 +139,6 @@
   function viewSchedule() {
     const list = data.schedule || [];
     let h = '';
-    if ((data.changes || []).length) {
-      h += '<h2>Изменения в расписании</h2>';
-      h += data.changes.map((p, i) => post({ ...p, badge: i === 0 ? 'новое' : '' }, false, i > 0)).join('');
-    }
     if (list.length) {
       if (!list.some((s) => s.id === cls)) cls = list[0].id;
       const cur = list.find((s) => s.id === cls);
@@ -155,6 +151,10 @@
           : '<div class="file"><div class="ic">PDF</div><div style="flex:1;min-width:0">' + esc(f.name) + '</div><button class="link" data-file="' + esc(f.src) + '">Открыть</button></div>').join('') +
         (cur.url ? '<div class="row"><button class="btn-wide" data-open="' + esc(cur.url) + '">' + esc(cur.url_title || 'Открыть расписание на сайте') + '</button></div>' : '') +
         (!cur.files.length && !cur.url ? '<div class="muted">Файлы ещё не загружены</div>' : '') + '</div>';
+    }
+    if ((data.changes || []).length) {
+      h += '<h2>Изменения в расписании</h2>';
+      h += data.changes.map((p, i) => post({ ...p, badge: i === 0 ? 'новое' : '' }, false, i > 0)).join('');
     }
     if (!h) h = '<div class="empty">Расписание пока не опубликовано</div>';
     return h;
