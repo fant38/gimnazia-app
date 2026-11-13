@@ -58,6 +58,19 @@
   .dish:first-of-type { border-top: 0; }
   .dish .nm { flex: 1; min-width: 0; }
   .dish .pr { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .chips.wrap { flex-wrap: wrap; overflow: visible; }
+  .chips.wrap button { padding: 5px 10px; font-size: 13px; min-width: 44px; }
+  .tt-day { padding: 8px 0 4px; border-top: 1px solid var(--line); }
+  .tt-title + .tt-day { border-top: 0; }
+  .tt-day-h { font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+  .tt-day-h .badge { margin-left: 2px; }
+  .tt { list-style: none; margin: 0; padding: 0; }
+  .tt li { display: flex; gap: 8px; padding: 3px 0; align-items: baseline; }
+  .tt .ln { width: 16px; flex: 0 0 auto; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  .tt .ls { flex: 1; min-width: 0; }
+  .tt .lt { flex: 0 0 auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+  .tt li.chg .ls { color: var(--warn); font-weight: 600; }
+  .tt-title { font-size: 17px; font-weight: 700; margin-bottom: 2px; }
   .empty { text-align: center; color: var(--muted); padding: 32px 16px; }
   .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 16px; }
   #viewer { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.94); display: none; overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y pinch-zoom; }
@@ -80,8 +93,8 @@
   const W = window.WebApp || null;
   const $ = (s) => document.querySelector(s);
   const main = $('#main');
-  let data = null, tab = 'schedule', cls = null, menuDay = null, foodGroup = null;
-  try { const t = localStorage.getItem('miniapp.tab'); tab = ['news', 'menu'].includes(t) ? t : 'schedule'; cls = localStorage.getItem('miniapp.class'); foodGroup = localStorage.getItem('miniapp.food'); } catch (e) { /* хранилище недоступно */ }
+  let data = null, tab = 'schedule', cls = null, menuDay = null, foodGroup = null, myClasses = [];
+  try { const t = localStorage.getItem('miniapp.tab'); tab = ['news', 'menu'].includes(t) ? t : 'schedule'; cls = localStorage.getItem('miniapp.class'); foodGroup = localStorage.getItem('miniapp.food'); myClasses = JSON.parse(localStorage.getItem('miniapp.myclasses') || '[]'); } catch (e) { /* хранилище недоступно */ }
 
   function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   function safeUrl(u) { return /^https?:\/\//i.test(u || '') ? u : null; }
@@ -144,13 +157,63 @@
       '</div>';
   }
 
+  const WD = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
+  // 5 ближайших учебных дней: с сегодняшнего (после 15:00 — со следующего), без субботы и воскресенья
+  function schoolDays() {
+    const out = [], d = new Date();
+    if (d.getHours() >= 15) d.setDate(d.getDate() + 1);
+    while (out.length < 5) { if (d.getDay() % 6 !== 0) out.push(new Date(d)); d.setDate(d.getDate() + 1); }
+    return out;
+  }
+  function lessonRow(tt, n, subj, cab, ch) {
+    const t = (tt.bells || [])[n - 1];
+    return '<li' + (ch ? ' class="chg"' : '') + '><span class="ln">' + n + '</span><span class="ls">' +
+      (subj ? esc(subj) : (ch ? 'нет урока' : '—')) + (cab ? ' <span class="muted">каб. ' + esc(cab) + '</span>' : '') + (ch ? ' ✏️' : '') +
+      '</span>' + (t ? '<span class="lt">' + esc(t) + '</span>' : '') + '</li>';
+  }
+  // Расписание выбранных классов (до двух) текстом: основное, а где на сайте есть изменения — как на самом деле, с пометкой
+  function viewTimetable() {
+    const tt = data.timetable;
+    if (!tt || !(tt.classes || []).length) return '';
+    const keys = tt.classes.map((c) => c.key);
+    myClasses = myClasses.filter((k) => keys.includes(k));
+    let h = '<h2>Расписание класса</h2><div class="chips wrap">' + tt.classes.map((c) =>
+      '<button data-mycls="' + esc(c.key) + '"' + (myClasses.includes(c.key) ? ' class="on"' : '') + '>' + esc(c.label) + '</button>').join('') + '</div>';
+    if (!myClasses.length) return h + '<div class="card muted">Выберите свой класс — учителю можно два.</div>';
+    for (const k of myClasses) {
+      const label = (tt.classes.find((c) => c.key === k) || {}).label || k;
+      let any = false;
+      const days = schoolDays().map((d) => {
+        const iso = isoDay(d), wd = (d.getDay() + 6) % 7;
+        const ch = ((tt.changes || {})[iso] || {}).classes || {};
+        const head = WD[wd] + ', ' + d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+        let rows;
+        if (ch[k]) {
+          any = true;
+          rows = ch[k].map((l) => lessonRow(tt, l[0], l[1], l[2], l[3])).join('');
+          return '<div class="tt-day"><div class="tt-day-h">' + esc(head) + '<span class="badge">✏️ изменения</span>' +
+            '<button class="link" data-open="' + esc(tt.changes[iso].pdf) + '">PDF</button></div><ol class="tt">' + rows + '</ol></div>';
+        }
+        const base = ((tt.main || {})[wd] || {})[k] || [];
+        const top = base.reduce((m, l) => Math.max(m, l[0]), 0), by = {};
+        base.forEach((l) => { by[l[0]] = l; });
+        rows = top ? Array.from({ length: top }, (_, i) => by[i + 1] ? lessonRow(tt, i + 1, by[i + 1][1], by[i + 1][2], false) : lessonRow(tt, i + 1, null, null, false)).join('')
+          : '<li class="muted">Уроков нет</li>';
+        return '<div class="tt-day"><div class="tt-day-h">' + esc(head) + '</div><ol class="tt">' + rows + '</ol></div>';
+      }).join('');
+      h += '<div class="card"><div class="tt-title">' + esc(label) + '</div>' + days +
+        (any ? '<div class="muted">✏️ — изменения, внесённые в расписание (по файлам изменений на сайте школы).</div>' : '') + '</div>';
+    }
+    return h;
+  }
+
   function viewSchedule() {
     const list = data.schedule || [];
-    let h = '';
+    let h = viewTimetable();
     if (list.length) {
       if (!list.some((s) => s.id === cls)) cls = list[0].id;
       const cur = list.find((s) => s.id === cls);
-      h += '<h2>Основное расписание</h2>';
+      h += '<h2>' + (data.timetable ? 'Файл расписания' : 'Основное расписание') + '</h2>';
       if (list.length > 1) h += '<div class="chips">' + list.map((s) => '<button data-cls="' + esc(s.id) + '"' + (s.id === cls ? ' class="on"' : '') + '>' + esc(s.title) + '</button>').join('') + '</div>';
       h += '<div class="card sched">' + (list.length === 1 ? '<b>' + esc(cur.title) + '</b>' : '') +
         (cur.updated ? '<div class="muted">обновлено ' + new Date(cur.updated * 1000).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) + '</div>' : '') +
@@ -238,6 +301,13 @@
     if (nav) { tab = nav.dataset.tab; try { localStorage.setItem('miniapp.tab', tab); } catch (x) { /* не важно */ } draw(); window.scrollTo(0, 0); return; }
     const dayChip = t.closest('[data-day]');
     if (dayChip) { menuDay = dayChip.dataset.day; draw(); return; }
+    const myChip = t.closest('[data-mycls]');
+    if (myChip) {
+      const k = myChip.dataset.mycls;
+      myClasses = myClasses.includes(k) ? myClasses.filter((x) => x !== k) : myClasses.concat(k).slice(-2);
+      try { localStorage.setItem('miniapp.myclasses', JSON.stringify(myClasses)); } catch (x) { /* не важно */ }
+      draw(); return;
+    }
     const foodChip = t.closest('[data-food]');
     if (foodChip) { foodGroup = foodChip.dataset.food; try { localStorage.setItem('miniapp.food', foodGroup); } catch (x) { /* не важно */ } draw(); return; }
     const chip = t.closest('[data-cls]');
