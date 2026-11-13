@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Гимназия</title>
+<script src="https://st.max.ru/js/max-web-app.js"></script>
+<style>
+  :root { --bg: #f2f3f5; --card: #fff; --text: #16181d; --muted: #6b7280; --line: #e5e7eb; --accent: #2b6ef6; --accent-weak: #e8f0ff; --warn: #b45309; --warn-weak: #fff4e0; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1115; --card: #1a1d23; --text: #eceef2; --muted: #9aa1ad; --line: #2a2e36; --accent: #5b8ff9; --accent-weak: #1d2a44; --warn: #f0b35a; --warn-weak: #3a2a12; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-text-size-adjust: 100%; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--card); border-bottom: 1px solid var(--line); padding: 10px 16px 0; }
+  .head { display: flex; align-items: center; gap: 10px; }
+  .head img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; background: var(--line); }
+  .head .t { font-weight: 600; font-size: 16px; line-height: 1.2; flex: 1; min-width: 0; }
+  .head button { border: 0; background: var(--accent); color: #fff; border-radius: 16px; padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  nav { display: flex; gap: 4px; margin-top: 8px; }
+  nav button { flex: 1; border: 0; background: none; color: var(--muted); font: inherit; font-weight: 600; padding: 10px 0; border-bottom: 2px solid transparent; cursor: pointer; }
+  nav button.on { color: var(--accent); border-bottom-color: var(--accent); }
+  main { padding: 12px 12px 32px; max-width: 720px; margin: 0 auto; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 16px 4px 8px; font-weight: 600; }
+  h2:first-child { margin-top: 4px; }
+  .card { background: var(--card); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }
+  .date { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .text { white-space: pre-wrap; word-wrap: break-word; }
+  .text.clip { max-height: 9.5em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
+  .text a { color: var(--accent); }
+  .text .h { font-weight: 700; font-size: 1.05em; }
+  .more { border: 0; background: none; color: var(--accent); font: inherit; padding: 4px 0 0; cursor: pointer; }
+  .gallery { display: flex; gap: 6px; overflow-x: auto; margin: 8px -14px 0; padding: 0 14px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .gallery::-webkit-scrollbar { display: none; }
+  .gallery .ph { flex: 0 0 auto; width: 100%; scroll-snap-align: start; position: relative; }
+  .gallery.many .ph { width: 82%; }
+  .gallery.thumbs .ph { width: 72px; }
+  .gallery.thumbs .ph img { height: 72px; }
+  .ph img { width: 100%; max-height: 420px; object-fit: cover; border-radius: 10px; display: block; background: var(--line); cursor: zoom-in; }
+  .ph.video::after { content: "▶"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 34px; color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.6); pointer-events: none; }
+  .row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .link { border: 0; background: none; color: var(--accent); font: inherit; font-size: 13px; padding: 0; cursor: pointer; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .chips { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 10px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chips button { flex: 0 0 auto; border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 16px; padding: 6px 12px; font: inherit; font-size: 14px; cursor: pointer; }
+  .chips button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .sched img { width: 100%; border-radius: 10px; display: block; margin-top: 8px; cursor: zoom-in; background: var(--line); }
+  .file { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+  .file:first-of-type { border-top: 0; }
+  .file .ic { width: 34px; height: 34px; border-radius: 8px; background: var(--accent-weak); color: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+  .btn-wide { width: 100%; border: 0; background: var(--accent-weak); color: var(--accent); border-radius: 10px; padding: 10px; font: inherit; font-weight: 600; cursor: pointer; }
+  .badge { display: inline-block; background: var(--warn-weak); color: var(--warn); border-radius: 8px; padding: 1px 8px; font-size: 12px; font-weight: 600; margin-left: 6px; }
+  .empty { text-align: center; color: var(--muted); padding: 32px 16px; }
+  .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 16px; }
+  #viewer { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.94); display: none; overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y pinch-zoom; }
+  #viewer.on { display: block; }
+  #viewer img { display: block; width: 100%; height: auto; min-height: 100%; object-fit: contain; }
+  #viewer.zoom img { width: 220%; max-width: none; min-height: 0; }
+  #viewer .x { position: fixed; top: max(10px, env(safe-area-inset-top)); right: 12px; width: 38px; height: 38px; border-radius: 50%; border: 0; background: rgba(255,255,255,.18); color: #fff; font-size: 20px; cursor: pointer; }
+  #viewer .hint { position: fixed; bottom: max(12px, env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; color: rgba(255,255,255,.7); font-size: 12px; pointer-events: none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="head"><img id="logo" alt="" hidden><div class="t" id="title">Гимназия</div><button id="sub" hidden>Подписаться</button></div>
+  <nav><button data-tab="schedule" class="on">Расписание</button><button data-tab="news">Новости</button></nav>
+</header>
+<main id="main"><div class="empty">Загрузка…</div></main>
+<div id="viewer"><img alt=""><button class="x" aria-label="Закрыть">✕</button><div class="hint">Нажмите на картинку, чтобы увеличить</div></div>
+<script>
+(function () {
+  const W = window.WebApp || null;
+  const $ = (s) => document.querySelector(s);
+  const main = $('#main');
+  let data = null, tab = 'schedule', cls = null;
+  try { tab = localStorage.getItem('miniapp.tab') === 'news' ? 'news' : 'schedule'; cls = localStorage.getItem('miniapp.class'); } catch (e) { /* хранилище недоступно */ }
+
+  function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+  function safeUrl(u) { return /^https?:\/\//i.test(u || '') ? u : null; }
+
+  // Оформление поста: диапазоны markup в единицах UTF-16 — строки JS тоже в UTF-16, так что режем прямо по ним
+  function render(text, markup) {
+    const marks = (markup || []).filter((m) => m && m.length > 0);
+    const cuts = new Set([0, text.length]);
+    marks.forEach((m) => { cuts.add(m.from); cuts.add(m.from + m.length); });
+    const pts = [...cuts].filter((x) => x >= 0 && x <= text.length).sort((a, b) => a - b);
+    let out = '';
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], b = pts[i + 1];
+      let s = esc(text.slice(a, b));
+      const on = marks.filter((m) => m.from <= a && m.from + m.length >= b);
+      let link = null;
+      on.forEach((m) => {
+        if (m.type === 'strong') s = '<b>' + s + '</b>';
+        else if (m.type === 'emphasized') s = '<i>' + s + '</i>';
+        else if (m.type === 'underline') s = '<u>' + s + '</u>';
+        else if (m.type === 'strikethrough') s = '<s>' + s + '</s>';
+        else if (m.type === 'monospaced' || m.type === 'code') s = '<code>' + s + '</code>';
+        else if (m.type === 'heading') s = '<span class="h">' + s + '</span>';
+        else if (m.type === 'link' && safeUrl(m.url)) link = m.url;
+      });
+      if (link) s = '<a href="' + esc(link) + '" data-ext="1">' + s + '</a>';
+      out += s;
+    }
+    // голые ссылки в тексте
+    return out.replace(/(^|[\s(])(https?:\/\/[^\s<]+[^\s<.,;:!?)»])/g, (m, p, u) => p + '<a href="' + u + '" data-ext="1">' + u + '</a>');
+  }
+
+  function fmtDate(ts) {
+    const d = new Date(ts), now = new Date();
+    const day = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+    const diff = Math.round((day(now) - day(d)) / 864e5);
+    const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    if (diff === 0) return 'сегодня, ' + time;
+    if (diff === 1) return 'вчера, ' + time;
+    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', ...(d.getFullYear() !== now.getFullYear() ? { year: 'numeric' } : {}) }) + ', ' + time;
+  }
+
+  function openUrl(u) {
+    if (!u) return;
+    if (/^https:\/\/max\.ru\//.test(u) && W && W.openMaxLink) return W.openMaxLink(u);
+    if (W && W.openLink) return W.openLink(u);
+    window.open(u, '_blank', 'noopener');
+  }
+
+  function post(p, clip, compact) {
+    const media = (p.images || []).map((src) => '<div class="ph"><img loading="lazy" src="' + esc(src) + '" alt="" data-full="' + esc(src) + '"></div>')
+      .concat((p.videos || []).map((src) => '<div class="ph video"><img loading="lazy" src="' + esc(src) + '" alt="Видео" data-post="' + esc(p.url || '') + '"></div>'));
+    const long = clip && p.text.length > 420;
+    return '<div class="card">' +
+      '<div class="date">' + fmtDate(p.ts) + (p.badge ? '<span class="badge">' + esc(p.badge) + '</span>' : '') + '</div>' +
+      (p.text ? '<div class="text' + (long ? ' clip' : '') + '">' + render(p.text, p.markup) + '</div>' + (long ? '<button class="more">Читать полностью</button>' : '') : '') +
+      (media.length ? '<div class="gallery' + (compact ? ' thumbs' : media.length > 1 ? ' many' : '') + '">' + media.join('') + '</div>' : '') +
+      (p.url ? '<div class="row"><button class="link" data-open="' + esc(p.url) + '">Открыть в канале' + ((p.videos || []).length ? ' (видео)' : '') + '</button>' + (media.length > 1 ? '<span class="muted">· ' + media.length + ' фото</span>' : '') + '</div>' : '') +
+      '</div>';
+  }
+
+  function viewSchedule() {
+    const list = data.schedule || [];
+    let h = '';
+    if ((data.changes || []).length) {
+      h += '<h2>Изменения в расписании</h2>';
+      h += data.changes.map((p, i) => post({ ...p, badge: i === 0 ? 'новое' : '' }, false, i > 0)).join('');
+    }
+    if (list.length) {
+      if (!list.some((s) => s.id === cls)) cls = list[0].id;
+      const cur = list.find((s) => s.id === cls);
+      h += '<h2>Основное расписание</h2>';
+      if (list.length > 1) h += '<div class="chips">' + list.map((s) => '<button data-cls="' + esc(s.id) + '"' + (s.id === cls ? ' class="on"' : '') + '>' + esc(s.title) + '</button>').join('') + '</div>';
+      h += '<div class="card sched">' + (list.length === 1 ? '<b>' + esc(cur.title) + '</b>' : '') +
+        (cur.updated ? '<div class="muted">обновлено ' + new Date(cur.updated * 1000).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }) + '</div>' : '') +
+        cur.files.map((f) => f.type === 'image'
+          ? '<img loading="lazy" src="' + esc(f.src) + '" alt="' + esc(cur.title) + '" data-full="' + esc(f.src) + '">'
+          : '<div class="file"><div class="ic">PDF</div><div style="flex:1;min-width:0">' + esc(f.name) + '</div><button class="link" data-file="' + esc(f.src) + '">Открыть</button></div>').join('') +
+        (cur.url ? '<div class="row"><button class="btn-wide" data-open="' + esc(cur.url) + '">' + esc(cur.url_title || 'Открыть расписание на сайте') + '</button></div>' : '') +
+        (!cur.files.length && !cur.url ? '<div class="muted">Файлы ещё не загружены</div>' : '') + '</div>';
+    }
+    if (!h) h = '<div class="empty">Расписание пока не опубликовано</div>';
+    return h;
+  }
+
+  function viewNews() {
+    return (data.news || []).length ? data.news.map((p) => post(p, true)).join('') : '<div class="empty">Новостей пока нет</div>';
+  }
+
+  function draw() {
+    document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
+    main.innerHTML = (tab === 'news' ? viewNews() : viewSchedule()) +
+      '<div class="foot">Обновлено ' + fmtDate(data.generated * 1000) + '</div>';
+  }
+
+  // просмотр картинки на весь экран
+  const viewer = $('#viewer'), vimg = viewer.querySelector('img');
+  function closeViewer() { viewer.classList.remove('on', 'zoom'); if (W && W.BackButton) W.BackButton.hide(); }
+  function openViewer(src) {
+    vimg.src = src; viewer.classList.add('on'); viewer.scrollTop = 0;
+    if (W && W.BackButton) W.BackButton.show();
+  }
+  if (W && W.BackButton) W.BackButton.onClick(closeViewer);
+  viewer.querySelector('.x').onclick = closeViewer;
+  vimg.onclick = () => viewer.classList.toggle('zoom');
+
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    const nav = t.closest('nav button');
+    if (nav) { tab = nav.dataset.tab; try { localStorage.setItem('miniapp.tab', tab); } catch (x) { /* не важно */ } draw(); window.scrollTo(0, 0); return; }
+    const chip = t.closest('[data-cls]');
+    if (chip) { cls = chip.dataset.cls; try { localStorage.setItem('miniapp.class', cls); } catch (x) { /* не важно */ } draw(); return; }
+    if (t.closest('.more')) { const card = t.closest('.card'); card.querySelector('.text').classList.remove('clip'); t.remove(); return; }
+    const a = t.closest('a[data-ext]');
+    if (a) { e.preventDefault(); openUrl(a.getAttribute('href')); return; }
+    const op = t.closest('[data-open]');
+    if (op) { openUrl(op.dataset.open); return; }
+    const f = t.closest('[data-file]');
+    if (f) { openUrl(new URL(f.dataset.file, location.href).href); return; }
+    if (t.dataset && t.dataset.post) { openUrl(t.dataset.post); return; }
+    if (t.dataset && t.dataset.full && !viewer.classList.contains('on')) openViewer(t.dataset.full);
+  });
+
+  fetch('data.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => r.json()).then((d) => {
+    data = d;
+    const ch = d.channel || {};
+    if (ch.title) { $('#title').textContent = ch.title; document.title = ch.title; }
+    if (ch.icon) { const l = $('#logo'); l.src = ch.icon; l.hidden = false; }
+    if (ch.link) { const s = $('#sub'); s.hidden = false; s.onclick = () => openUrl(ch.link); }
+    draw();
+  }).catch(() => { main.innerHTML = '<div class="empty">Не удалось загрузить данные. Проверьте интернет и откройте ещё раз.</div>'; });
+})();
+</script>
+</body>
+</html>
