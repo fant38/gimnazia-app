@@ -52,6 +52,12 @@
   .btn-wide { width: 100%; border: 0; background: var(--accent-weak); color: var(--accent); border-radius: 10px; padding: 10px; font: inherit; font-weight: 600; cursor: pointer; }
   .btn-wide.notify { margin-bottom: 10px; }
   .badge { display: inline-block; background: var(--warn-weak); color: var(--warn); border-radius: 8px; padding: 1px 8px; font-size: 12px; font-weight: 600; margin-left: 6px; }
+  .meal-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
+  .meal-head b { font-size: 16px; }
+  .dish { display: flex; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+  .dish:first-of-type { border-top: 0; }
+  .dish .nm { flex: 1; min-width: 0; }
+  .dish .pr { white-space: nowrap; font-variant-numeric: tabular-nums; }
   .empty { text-align: center; color: var(--muted); padding: 32px 16px; }
   .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 16px; }
   #viewer { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.94); display: none; overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y pinch-zoom; }
@@ -65,7 +71,7 @@
 <body>
 <header>
   <div class="head"><img id="logo" alt="" hidden><div class="t" id="title">Гимназия</div><button id="sub" hidden>Подписаться</button></div>
-  <nav><button data-tab="schedule" class="on">Расписание</button><button data-tab="news">Новости</button></nav>
+  <nav><button data-tab="schedule" class="on">Расписание</button><button data-tab="menu">Меню</button><button data-tab="news">Новости</button></nav>
 </header>
 <main id="main"><div class="empty">Загрузка…</div></main>
 <div id="viewer"><img alt=""><button class="x" aria-label="Закрыть">✕</button><div class="hint">Нажмите на картинку, чтобы увеличить</div></div>
@@ -74,8 +80,8 @@
   const W = window.WebApp || null;
   const $ = (s) => document.querySelector(s);
   const main = $('#main');
-  let data = null, tab = 'schedule', cls = null;
-  try { tab = localStorage.getItem('miniapp.tab') === 'news' ? 'news' : 'schedule'; cls = localStorage.getItem('miniapp.class'); } catch (e) { /* хранилище недоступно */ }
+  let data = null, tab = 'schedule', cls = null, menuDay = null;
+  try { const t = localStorage.getItem('miniapp.tab'); tab = ['news', 'menu'].includes(t) ? t : 'schedule'; cls = localStorage.getItem('miniapp.class'); } catch (e) { /* хранилище недоступно */ }
 
   function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   function safeUrl(u) { return /^https?:\/\//i.test(u || '') ? u : null; }
@@ -174,13 +180,43 @@
     return diff === 0 ? 'на сегодня, ' + day : diff === 1 ? 'на завтра, ' + day : 'на ' + day;
   }
 
+  const money = (v) => v == null ? '' : v.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₽';
+  function dayName(iso, today) {
+    const d = new Date(iso + 'T00:00:00'), diff = Math.round((d - new Date(today + 'T00:00:00')) / 864e5);
+    const s = d.toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'short' });
+    return diff === 0 ? 'Сегодня' : diff === 1 ? 'Завтра, ' + s : s;
+  }
+  function viewMenu() {
+    const all = ((data.menu || {}).days || []);
+    if (!all.length) return '<div class="empty">Меню пока не выложено</div>';
+    const today = isoDay(new Date());
+    let days = all.filter((d) => d.date >= today), note = '';
+    if (!days.length) {   // нового меню ещё нет — показываем последнее
+      days = all.slice(-1);
+      note = '<div class="card muted">Меню на сегодня ещё не выложено. Последнее — за ' + new Date(days[0].date + 'T00:00:00').toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' }) + '.</div>';
+    }
+    if (!days.some((d) => d.date === menuDay)) menuDay = days[0].date;
+    const day = days.find((d) => d.date === menuDay);
+    let h = note;
+    if (days.length > 1) h += '<div class="chips">' + days.map((d) => '<button data-day="' + d.date + '"' + (d.date === menuDay ? ' class="on"' : '') + '>' + esc(dayName(d.date, today)) + '</button>').join('') + '</div>';
+    else if (!note) h += '<h2>' + esc(dayName(day.date, today)) + '</h2>';
+    h += day.meals.map((m) => '<div class="card"><div class="meal-head"><b>' + esc(m.name) + '</b><span class="muted">' +
+      [m.kcal ? m.kcal + ' ккал' : '', money(m.price)].filter(Boolean).join(' · ') + '</span></div>' +
+      m.items.map((i) => '<div class="dish"><div class="nm">' + esc(i.dish) + '<div class="muted">' +
+        [i.section, i.weight ? i.weight + ' г' : '', i.kcal != null ? i.kcal + ' ккал' : '',
+         i.protein != null ? 'Б ' + i.protein + ' · Ж ' + i.fat + ' · У ' + i.carbs : ''].filter(Boolean).map(esc).join(' · ') +
+        '</div></div><div class="pr">' + money(i.price) + '</div></div>').join('') + '</div>').join('');
+    h += '<div class="row" style="justify-content:center"><button class="link" data-open="' + esc(day.url) + '">Меню на сайте школы (таблица)</button></div>';
+    return h;
+  }
+
   function viewNews() {
     return (data.news || []).length ? data.news.map((p) => post(p, true)).join('') : '<div class="empty">Новостей пока нет</div>';
   }
 
   function draw() {
     document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
-    main.innerHTML = (tab === 'news' ? viewNews() : viewSchedule()) +
+    main.innerHTML = (tab === 'news' ? viewNews() : tab === 'menu' ? viewMenu() : viewSchedule()) +
       '<div class="foot">Обновлено ' + fmtDate(data.generated * 1000) + '</div>';
   }
 
@@ -199,6 +235,8 @@
     const t = e.target;
     const nav = t.closest('nav button');
     if (nav) { tab = nav.dataset.tab; try { localStorage.setItem('miniapp.tab', tab); } catch (x) { /* не важно */ } draw(); window.scrollTo(0, 0); return; }
+    const dayChip = t.closest('[data-day]');
+    if (dayChip) { menuDay = dayChip.dataset.day; draw(); return; }
     const chip = t.closest('[data-cls]');
     if (chip) { cls = chip.dataset.cls; try { localStorage.setItem('miniapp.class', cls); } catch (x) { /* не важно */ } draw(); return; }
     if (t.closest('.more')) { const card = t.closest('.card'); card.querySelector('.text').classList.remove('clip'); t.remove(); return; }
