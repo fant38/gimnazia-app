@@ -152,12 +152,22 @@
         (cur.url ? '<div class="row"><button class="btn-wide" data-open="' + esc(cur.url) + '">' + esc(cur.url_title || 'Открыть расписание на сайте') + '</button></div>' : '') +
         (!cur.files.length && !cur.url ? '<div class="muted">Файлы ещё не загружены</div>' : '') + '</div>';
     }
-    if ((data.changes || []).length) {
-      h += '<h2>Изменения в расписании</h2>';
-      h += data.changes.map((p, i) => post({ ...p, badge: i === 0 ? 'новое' : '' }, false, i > 0)).join('');
-    }
+    // только актуальные: день изменения сегодня или позже (по часам телефона — даже если сайт давно не обновлялся)
+    const today = isoDay(new Date());
+    const actual = (data.changes || []).filter((p) => !p.until || p.until >= today).sort((a, b) => (a.until || '').localeCompare(b.until || ''));
+    h += '<h2>Изменения в расписании</h2>';
+    h += actual.length ? actual.map((p) => post({ ...p, badge: untilLabel(p.until, today) }, false, false)).join('')
+      : '<div class="card muted">Актуальных изменений нет</div>';
     if (!h) h = '<div class="empty">Расписание пока не опубликовано</div>';
     return h;
+  }
+
+  function isoDay(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function untilLabel(u, today) {
+    if (!u) return '';
+    const d = new Date(u + 'T00:00:00'), t = new Date(today + 'T00:00:00'), diff = Math.round((d - t) / 864e5);
+    const day = d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+    return diff === 0 ? 'на сегодня, ' + day : diff === 1 ? 'на завтра, ' + day : 'на ' + day;
   }
 
   function viewNews() {
