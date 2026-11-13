@@ -166,6 +166,8 @@
     h += '<h2>Изменения в расписании</h2>';
     const subLink = (data.channel || {}).subscribe;
     if (subLink) h += '<button class="btn-wide notify" data-open="' + esc(subLink) + '">🔔 Присылать изменения мне в MAX</button>';
+    const clsLink = (data.channel || {}).classes;
+    if (clsLink) h += '<button class="btn-wide notify" data-open="' + esc(clsLink) + '">🏫 Выбрать класс — только мои уроки</button>';
     h += actual.length ? actual.map((p) => post({ ...p, badge: untilLabel(p.until, today) }, false, false)).join('')
       : '<div class="card muted">Актуальных изменений нет</div>';
     if (!h) h = '<div class="empty">Расписание пока не опубликовано</div>';
