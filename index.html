@@ -91,7 +91,9 @@
   .kv .muted { text-align: right; }
   details.sub { border-top: 1px solid var(--line); padding: 8px 0; }
   details.sub:first-child { border-top: 0; padding-top: 0; }
-  details.sub summary { cursor: pointer; font-weight: 600; list-style: none; }
+  details.fold details.sub summary { cursor: pointer; font-weight: 600; list-style: none; display: block; text-align: left; }
+  details.fold details.sub summary::after { content: none; }
+  details.sub .fold-body { padding: 6px 0 0 14px; }
   details.sub summary::-webkit-details-marker { display: none; }
   details.sub summary::before { content: '›'; display: inline-block; width: 14px; color: var(--muted); transition: transform .15s; }
   details.sub[open] summary::before { transform: rotate(90deg); }
@@ -475,7 +477,7 @@
       if (!week.some((d) => d.day === clubDay)) clubDay = (week.find((d) => d.day.startsWith(todayName)) || week[0]).day;
       b += '<div class="chips wrap">' + week.map((d) => '<button data-clubday="' + esc(d.day) + '"' + (d.day === clubDay ? ' class="on"' : '') + '>' + wd[['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'].findIndex((n) => d.day.startsWith(n))] + '</button>').join('') + '</div>';
       const day = week.find((d) => d.day === clubDay);
-      b += '<div class="muted">' + esc(day.day) + '</div>' + day.items.slice().sort((x, y) => (x.time || '').localeCompare(y.time || '')).map((x) => '<div class="club"><span class="t">' + esc(x.time || '') + '</span> ' + esc(x.name) +
+      b += '<div class="muted">' + esc(day.day) + '</div>' + day.items.slice().sort((x, y) => (x.time || '').padStart(11, '0').localeCompare((y.time || '').padStart(11, '0'))).map((x) => '<div class="club"><span class="t">' + esc(x.time || '') + '</span> ' + esc(x.name) +
         '<div class="muted">' + [x.room ? 'каб. ' + x.room : '', x.teacher].filter(Boolean).map(esc).join(' · ') + '</div></div>').join('');
     }
     if ((c.list || []).length) {
