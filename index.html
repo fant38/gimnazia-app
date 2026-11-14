@@ -89,6 +89,21 @@
   .kv { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-top: 1px solid var(--line); }
   .kv:first-child { border-top: 0; }
   .kv .muted { text-align: right; }
+  details.sub { border-top: 1px solid var(--line); padding: 8px 0; }
+  details.sub:first-child { border-top: 0; padding-top: 0; }
+  details.sub summary { cursor: pointer; font-weight: 600; list-style: none; }
+  details.sub summary::-webkit-details-marker { display: none; }
+  details.sub summary::before { content: '›'; display: inline-block; width: 14px; color: var(--muted); transition: transform .15s; }
+  details.sub[open] summary::before { transform: rotate(90deg); }
+  .info p { margin: 4px 0 8px; }
+  .ev { display: flex; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
+  .ev:first-child { border-top: 0; }
+  .ev .d { flex: 0 0 64px; color: var(--muted); font-size: 13px; }
+  .club { padding: 7px 0; border-top: 1px solid var(--line); }
+  .club:first-child { border-top: 0; }
+  .club .t { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .hot { background: var(--warn-weak); border-radius: 10px; padding: 10px 12px; margin: 4px 0 10px; }
+  .hot a, .info a.tel { color: var(--accent); font-weight: 600; text-decoration: none; }
   .tests { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
   .btn-row { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
   .empty { text-align: center; color: var(--muted); padding: 32px 16px; }
@@ -113,7 +128,7 @@
   const W = window.WebApp || null;
   const $ = (s) => document.querySelector(s);
   const main = $('#main');
-  let data = null, tab = 'schedule', cls = null, menuDay = null, foodGroup = null, myClasses = [], folds = {}, infoGrade = null;
+  let data = null, tab = 'schedule', cls = null, menuDay = null, foodGroup = null, myClasses = [], folds = {}, infoGrade = null, clubDay = null, evGrade = null, evAll = false;
   try { const t = localStorage.getItem('miniapp.tab'); tab = ['news', 'info'].includes(t) ? t : 'schedule'; cls = localStorage.getItem('miniapp.class'); foodGroup = localStorage.getItem('miniapp.food'); myClasses = JSON.parse(localStorage.getItem('miniapp.myclasses') || '[]'); } catch (e) { /* хранилище недоступно */ }
 
   function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -341,7 +356,7 @@
 
   function viewSchedule() {
     const list = data.schedule || [];
-    let h = viewCountdown() + viewTimetable();
+    let h = viewCountdown() + viewTimetable() + viewUpcoming();
     // 4. меню столовой — сразу после расписания, свёрнуто
     if (((data.menu || {}).groups || []).length) h += fold('menu', '🍽 Меню столовой', viewMenu());
     if (list.length && !data.timetable) {   // файл расписания — только если расписание текстом получить не удалось
@@ -415,10 +430,81 @@
 
   function ul(list) { return (list && list.length) ? '<ul>' + list.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : ''; }
   function btn(url, text) { return url ? '<button class="btn-wide" data-open="' + esc(url) + '">' + esc(text) + '</button>' : ''; }
+
+  // ---- блоки страниц сайта: {h} | {p:[]} | {li:[]} | {links:[[t,u]]} | {doc:u} | {more:true}
+  function blocksHtml(blocks, url) {
+    return (blocks || []).map((b) => {
+      if (b.h) return '<h3>' + esc(b.h) + '</h3>';
+      if (b.p) return b.p.map((x) => '<p>' + esc(x) + '</p>').join('');
+      if (b.li) return ul(b.li);
+      if (b.links) return b.links.map((l) => '<div><button class="link" data-open="' + esc(l[1]) + '">' + esc(l[0]) + '</button></div>').join('');
+      if (b.doc) return '<div><button class="link" data-open="' + esc(b.doc) + '">📄 Документ (PDF)</button></div>';
+      return '';
+    }).join('') + (url ? '<div class="btn-row">' + btn(url, (blocks || []).some((b) => b.more) ? 'Читать полностью на сайте' : 'Открыть на сайте') + '</div>' : '');
+  }
+  function page(id) { const p = ((data.school || {}).pages || {})[id]; return p && (p.blocks || []).length ? p : null; }
+  function sub(title, body) { return '<details class="sub"><summary>' + esc(title) + '</summary><div class="fold-body">' + body + '</div></details>'; }
+  function tel(display, num) { return '<a class="tel" href="tel:' + esc(num) + '">' + esc(display) + '</a>'; }
+  function evName(e) { return String(e.name || '').replace(/^[—–\-\s]+/, ''); }
+  function evDate(e) {
+    const f = (iso) => { const d = new Date(iso + 'T00:00'); return d.getDate() + ' ' + MONTHS_G[d.getMonth()]; };
+    return e.end && e.end !== e.start ? f(e.start).replace(/ \S+$/, e.start.slice(5, 7) === e.end.slice(5, 7) ? '' : ' ' + MONTHS_G[+e.start.slice(5, 7) - 1]) + '–' + f(e.end) : f(e.start);
+  }
+  const MONTHS_G = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+  const MONTHS_N = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+  // мероприятия: короткие (до недели), ещё не закончились; grade — фильтр по параллели (без параллели в плане — для всех)
+  function events(grade, days) {
+    const today = isoDay(new Date()), lim = days ? isoDay(new Date(Date.now() + days * 864e5)) : '9999';
+    return ((((data.school || {}).events || {}).items) || []).filter((e) => {
+      const len = (new Date(e.end || e.start) - new Date(e.start)) / 864e5;
+      return len <= 7 && (e.end || e.start) >= today && e.start <= lim && (!grade || !(e.grades || []).length || e.grades.includes(+grade));
+    });
+  }
+  function evRow(e) { return '<div class="ev"><div class="d">' + evDate(e) + '</div><div>' + esc(evName(e)) + (e.who ? '<div class="muted">' + esc(e.who) + '</div>' : '') + '</div></div>'; }
+  function viewUpcoming() {
+    const gs = [...new Set(myClasses.map(gradeOf))];
+    const list = events(null, 14).filter((e) => !gs.length || !(e.grades || []).length || e.grades.some((g) => gs.includes(g))).slice(0, 4);
+    return list.length ? fold('upcoming', '🎉 Ближайшие события', list.map(evRow).join('')) : '';
+  }
+  function viewClubs() {
+    const c = (data.school || {}).clubs || {};
+    let b = '';
+    const week = (c.week || []).filter((d) => (d.items || []).length);
+    if (week.length) {
+      const wd = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'], todayName = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'][new Date().getDay()];
+      if (!week.some((d) => d.day === clubDay)) clubDay = (week.find((d) => d.day.startsWith(todayName)) || week[0]).day;
+      b += '<div class="chips wrap">' + week.map((d) => '<button data-clubday="' + esc(d.day) + '"' + (d.day === clubDay ? ' class="on"' : '') + '>' + wd[['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'].findIndex((n) => d.day.startsWith(n))] + '</button>').join('') + '</div>';
+      const day = week.find((d) => d.day === clubDay);
+      b += '<div class="muted">' + esc(day.day) + '</div>' + day.items.slice().sort((x, y) => (x.time || '').localeCompare(y.time || '')).map((x) => '<div class="club"><span class="t">' + esc(x.time || '') + '</span> ' + esc(x.name) +
+        '<div class="muted">' + [x.room ? 'каб. ' + x.room : '', x.teacher].filter(Boolean).map(esc).join(' · ') + '</div></div>').join('');
+    }
+    if ((c.list || []).length) {
+      b += '<h3>Все кружки и секции</h3>' + c.list.map((x) => sub(x.name,
+        ((x.info || []).concat(x.cat || []).length ? '<div class="muted">' + (x.info || []).concat(x.cat || []).map(esc).join(' · ') + '</div>' : '') +
+        (x.text ? '<p>' + esc(x.text.length > 600 ? x.text.slice(0, 600).replace(/\s+\S*$/, '') + '…' : x.text) + '</p>' : '') +
+        (x.url ? '<button class="link" data-open="' + esc(x.url) + '">Подробнее на сайте</button>' : ''))).join('');
+    }
+    b += '<div class="btn-row">' + btn(c.sched_url, 'Расписание кружков на сайте') + '</div>';
+    return b;
+  }
+  function viewEvents() {
+    const sc = data.school || {}, ev = sc.events || {};
+    if (!(ev.items || []).length) return '';
+    const gs = [...new Set(myClasses.map(gradeOf))];
+    if (evGrade === null) evGrade = gs.length === 1 ? gs[0] : 0;
+    let b = '<div class="chips wrap"><button data-evgrade="0"' + (!evGrade ? ' class="on"' : '') + '>Все</button>' + [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((g) => '<button data-evgrade="' + g + '"' + (g === evGrade ? ' class="on"' : '') + '>' + g + '</button>').join('') + '</div>';
+    const list = events(evGrade, evAll ? 0 : 45);
+    let m = '';
+    b += list.length ? list.map((e) => { const mm = e.start.slice(0, 7); const hd = mm !== m ? '<h3>' + MONTHS_N[+mm.slice(5) - 1] + '</h3>' : ''; m = mm; return hd + evRow(e); }).join('').replace(/<\/h3><div class="ev">/g, '</h3><div class="ev" style="border-top:0">')
+      : '<div class="muted">В ближайшие недели мероприятий нет.</div>';
+    if (!evAll) b += '<div class="btn-row"><button class="btn-wide" data-evall="1">Показать до конца учебного года</button></div>';
+    b += '<div class="btn-row">' + btn(ev.pdf, '📄 План воспитательной работы (PDF)') + '</div>';
+    return b;
+  }
   function viewInfo() {
     const sc = data.school || {}, tx = sc.texts || {}, ln = sc.links || {}, y = sc.year || {};
     if (!sc.texts) return '<div class="empty">Сведения пока не загружены</div>';
-    let h = '';
+    let h = '<h2>Учёба</h2>';
     // каникулы и четверти
     let b = '';
     if ((y.quarters || []).length) b += '<h3>Четверти</h3>' + y.quarters.map((q) => '<div class="kv"><span>' + esc(q.name) + '</span><span class="muted">' + dmy(q.start) + ' – ' + dmy(q.end) + '</span></div>').join('');
@@ -449,6 +535,45 @@
     }
     b += '<h3>ГИА (9 и 11 классы)</h3>' + ul(tx.gia) + '<div class="btn-row">' + btn(tests.pdf, '📄 График оценочных процедур (PDF)') + btn(ln.gia, 'ВПР и ГИА на сайте гимназии') + '</div>';
     h += fold('i-tests', '📝 Контрольные и экзамены', b);
+    // ---- правила
+    h += '<h2>Правила</h2>';
+    b = ul(tx.routine) + (page('rights') ? sub('Права и обязанности учащегося', blocksHtml(page('rights').blocks, page('rights').url)) : '');
+    h += fold('i-routine', '📋 Распорядок, права и обязанности', b);
+    if ((tx.uniform || []).length) h += fold('i-uniform', '👔 Школьная форма', ul(tx.uniform));
+    if ((tx.devices || []).length) h += fold('i-devices', '📵 Телефоны и гаджеты', ul(tx.devices));
+    if (page('visit')) h += fold('i-visit', '🚪 Посещение гимназии и пропуск', blocksHtml(page('visit').blocks, page('visit').url));
+    if (page('chats') || (tx.chat_ethics || []).length) h += fold('i-chats', '💬 Чаты Сферума и этика общения', (page('chats') ? blocksHtml(page('chats').blocks) : '') + ((tx.chat_ethics || []).length ? '<h3>Этика общения в чатах</h3>' + ul(tx.chat_ethics) : '') + (page('chats') ? '<div class="btn-row">' + btn(page('chats').url, 'Открыть на сайте') + '</div>' : ''));
+    // ---- кружки и мероприятия
+    const clubs = sc.clubs || {}, evs = (sc.events || {}).items || [];
+    if ((clubs.list || []).length || (clubs.week || []).length || evs.length) h += '<h2>Кружки и мероприятия</h2>';
+    if ((clubs.list || []).length || (clubs.week || []).length) h += fold('i-clubs', '⚽ Кружки и секции', viewClubs());
+    if (evs.length) h += fold('i-events', '🎉 Мероприятия', viewEvents());
+    // ---- полезное
+    h += '<h2>Полезное</h2>';
+    if (page('cold')) h += fold('i-cold', '❄️ Актированные дни', '<div class="hot">Занятия идут при любой погоде. При −30 °C и ниже вести ли ребёнка в гимназию, решают родители; если ребёнок останется дома — сообщите классному руководителю.</div>' + blocksHtml(page('cold').blocks, page('cold').url));
+    [['books', '📚 Учебники'], ['olymp', '🏆 Олимпиады и конференции'], ['paid', '💳 Платные услуги'], ['support', '🤝 Стипендии и меры поддержки']].forEach(([id, t]) => { if (page(id)) h += fold('i-' + id, t, blocksHtml(page(id).blocks, page(id).url)); });
+    const faq = sc.faq || [];
+    if (faq.length) h += fold('i-faq', '❓ Вопросы и ответы', faq.map((g) => (faq.length > 1 ? '<h3>' + esc(g.group) + '</h3>' : '') + g.items.map((q) => sub(q[0], '<p>' + esc(q[1]) + '</p>')).join('')).join(''));
+    if ((tx.links || []).length) h += fold('i-links', '🔗 Полезные ссылки', tx.links.map((l) => '<div class="kv"><span><button class="link" style="font-size:15px" data-open="' + esc(l[1]) + '">' + esc(l[0]) + '</button>' + (l[2] ? '<div class="muted">' + esc(l[2]) + '</div>' : '') + '</span></div>').join(''));
+    // ---- помощь
+    const helpIds = ['bullying', 'suicide', 'infosec', 'ice', 'sim'].filter(page);
+    if (tx.helpline || helpIds.length) {
+      h += '<h2>Помощь и безопасность</h2>';
+      const hl = String(tx.helpline || '').replace(/(8-800-[\d-]+)/, (m) => tel(m, m.replace(/-/g, '')));
+      h += fold('i-help', '🆘 Если нужна помощь', (tx.helpline ? '<div class="hot">' + hl.replace(/^([^<]*)/, (m) => esc(m)) + '</div>' : '') +
+        helpIds.map((id) => sub(page(id).title, blocksHtml(page(id).blocks, page(id).url))).join(''));
+    }
+    // ---- контакты
+    const ct = tx.contacts;
+    h += '<h2>Контакты</h2>';
+    if (ct) h += fold('i-contacts', '📞 Телефоны и адрес', (ct.phones || []).map((p) => '<div class="kv"><span>' + esc(p[0]) + '</span>' + tel(p[1], p[2]) + '</div>').join('') +
+      (ct.emails || []).map((e) => '<div class="kv"><span>Почта</span><a class="tel" href="mailto:' + esc(e) + '">' + esc(e) + '</a></div>').join('') +
+      (ct.hours || []).map((x) => '<div class="kv"><span>' + esc(x[0]) + '</span><span class="muted">' + esc(x[1]) + '</span></div>').join('') +
+      '<h3>Адрес</h3><p>' + esc(ct.address || '') + '</p>' + (ct.route ? '<p class="muted">' + esc(ct.route) + '</p>' : '') +
+      '<div class="btn-row">' + btn(ct.map, '🗺 Открыть на карте') + '</div>');
+    if ((tx.admin || []).length) h += fold('i-admin', '👩‍💼 Администрация', tx.admin.map((a) => '<div class="kv"><span>' + esc(a[0]) + '</span><span class="muted">' + esc(a[1]) + (a[2] ? '<br>' + esc(a[2]) : '') + '</span></div>').join(''));
+    const tch = sc.teachers || {}, tk = Object.keys(tch).sort((a, c) => gradeOf(a) - gradeOf(c) || a.localeCompare(c));
+    if (tk.length) h += fold('i-teachers', '🧑‍🏫 Классные руководители', tk.map((k) => '<div class="kv"><span>' + esc(classLabel(k)) + '</span><span class="muted">' + esc(tch[k]) + '</span></div>').join(''));
     return '<div class="info">' + h + '</div>';
   }
 
@@ -467,7 +592,7 @@
   function draw() {
     document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
     main.innerHTML = (tab === 'news' ? viewNews() : tab === 'info' ? viewInfo() : viewSchedule()) +
-      '<div class="foot">Обновлено ' + fmtDate(data.generated * 1000) + '</div>';
+      '<div class="foot">Обновлено ' + fmtDate(data.generated * 1000) + (data.version ? ' · версия ' + esc(data.version) : '') + '</div>';
   }
 
   // просмотр картинки на весь экран
@@ -489,6 +614,11 @@
     if (dayChip) { menuDay = dayChip.dataset.day; draw(); return; }
     const sum = t.closest('[data-fold]');
     if (sum) { folds[sum.dataset.fold] = !sum.parentNode.open; return; }
+    const cd = t.closest('[data-clubday]');
+    if (cd) { clubDay = cd.dataset.clubday; draw(); return; }
+    const eg = t.closest('[data-evgrade]');
+    if (eg) { evGrade = +eg.dataset.evgrade; draw(); return; }
+    if (t.closest('[data-evall]')) { evAll = true; draw(); return; }
     const ig = t.closest('[data-igrade]');
     if (ig) { infoGrade = +ig.dataset.igrade; draw(); return; }
     const myChip = t.closest('[data-mycls]');
