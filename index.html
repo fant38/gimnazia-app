@@ -555,19 +555,23 @@
     if (page('cold')) h += fold('i-cold', '❄️ Актированные дни', '<div class="hot">Занятия идут при любой погоде. При −30 °C и ниже вести ли ребёнка в гимназию, решают родители; если ребёнок останется дома — сообщите классному руководителю.</div>' + blocksHtml(page('cold').blocks, page('cold').url));
     [['books', '📚 Учебники'], ['olymp', '🏆 Олимпиады и конференции'], ['paid', '💳 Платные услуги'], ['support', '🤝 Стипендии и меры поддержки']].forEach(([id, t]) => { if (page(id)) h += fold('i-' + id, t, blocksHtml(page(id).blocks, page(id).url)); });
     const faq = sc.faq || [];
-    if (faq.length) h += fold('i-faq', '❓ Вопросы и ответы', faq.map((g) => (faq.length > 1 ? '<h3>' + esc(g.group) + '</h3>' : '') + g.items.map((q) => sub(q[0], '<p>' + esc(q[1]) + '</p>')).join('')).join(''));
+    if (faq.length) h += fold('i-faq', '❓ Вопросы и ответы', faq.map((g) => (faq.length > 1 ? '<h3>' + esc(g.group) + '</h3>' : '') + g.items.map((q) => sub(q[0], '<p>' + esc(q[1]) + '</p>')).join('')).join('') +
+      ((data.channel || {}).ask ? '<div class="btn-row"><button class="btn-wide" data-open="' + esc(data.channel.ask) + '">✉️ Не нашли ответ? Задать вопрос гимназии</button></div>' : ''));
     if ((tx.links || []).length) h += fold('i-links', '🔗 Полезные ссылки', tx.links.map((l) => '<div class="kv"><span><button class="link" style="font-size:15px" data-open="' + esc(l[1]) + '">' + esc(l[0]) + '</button>' + (l[2] ? '<div class="muted">' + esc(l[2]) + '</div>' : '') + '</span></div>').join(''));
     // ---- помощь
-    const helpIds = ['bullying', 'suicide', 'infosec', 'ice', 'sim'].filter(page);
+    const helpIds = ['infosec'].filter(page), chn = data.channel || {};
     if (tx.helpline || helpIds.length) {
       h += '<h2>Помощь и безопасность</h2>';
       const hl = String(tx.helpline || '').replace(/(8-800-[\d-]+)/, (m) => tel(m, m.replace(/-/g, '')));
       h += fold('i-help', '🆘 Если нужна помощь', (tx.helpline ? '<div class="hot">' + hl.replace(/^([^<]*)/, (m) => esc(m)) + '</div>' : '') +
+        (chn.psy ? '<button class="btn-wide notify" data-open="' + esc(chn.psy) + '">💬 Написать психологу — конфиденциально</button>' +
+          '<div class="muted" style="margin:-4px 0 10px">Сообщение уйдёт через бота гимназии. Его прочитают только педагог-психолог и администрация гимназии — ни одноклассники, ни учителя, ни общие чаты. Ответ придёт в чат с ботом.</div>' : '') +
         helpIds.map((id) => sub(page(id).title, blocksHtml(page(id).blocks, page(id).url))).join(''));
     }
     // ---- контакты
     const ct = tx.contacts;
     h += '<h2>Контакты</h2>';
+    if (chn.ask) h += '<button class="btn-wide notify" data-open="' + esc(chn.ask) + '">✉️ Задать вопрос гимназии</button>';
     if (ct) h += fold('i-contacts', '📞 Телефоны и адрес', (ct.phones || []).map((p) => '<div class="kv"><span>' + esc(p[0]) + '</span>' + tel(p[1], p[2]) + '</div>').join('') +
       (ct.emails || []).map((e) => '<div class="kv"><span>Почта</span><a class="tel" href="mailto:' + esc(e) + '">' + esc(e) + '</a></div>').join('') +
       (ct.hours || []).map((x) => '<div class="kv"><span>' + esc(x[0]) + '</span><span class="muted">' + esc(x[1]) + '</span></div>').join('') +
