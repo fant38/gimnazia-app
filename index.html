@@ -100,7 +100,7 @@
   .info p { margin: 4px 0 8px; }
   .ev { display: flex; gap: 10px; padding: 6px 0; border-top: 1px solid var(--line); }
   .ev:first-child { border-top: 0; }
-  .ev .d { flex: 0 0 64px; color: var(--muted); font-size: 13px; }
+  .ev .d { flex: 0 0 76px; color: var(--muted); font-size: 13px; }
   .club { padding: 7px 0; border-top: 1px solid var(--line); }
   .club:first-child { border-top: 0; }
   .club .t { font-variant-numeric: tabular-nums; font-weight: 600; }
@@ -451,22 +451,31 @@
   function evName(e) { return String(e.name || '').replace(/^[—–\-\s]+/, ''); }
   function evDate(e) {
     const f = (iso) => { const d = new Date(iso + 'T00:00'); return d.getDate() + ' ' + MONTHS_G[d.getMonth()]; };
-    return e.end && e.end !== e.start ? f(e.start).replace(/ \S+$/, e.start.slice(5, 7) === e.end.slice(5, 7) ? '' : ' ' + MONTHS_G[+e.start.slice(5, 7) - 1]) + '–' + f(e.end) : f(e.start);
+    const mon = (iso) => MONTHS_N[+iso.slice(5, 7) - 1].toLowerCase();
+    if (e.month) return e.start.slice(0, 7) === e.end.slice(0, 7) ? 'весь ' + mon(e.start) : mon(e.start) + ' – ' + mon(e.end);
+    if (e.until) return 'до ' + f(e.end);
+    return e.end && e.end !== e.start ? f(e.start).replace(/ \S+$/, e.start.slice(5, 7) === e.end.slice(5, 7) ? '' : ' ' + MONTHS_G[+e.start.slice(5, 7) - 1]) + ' – ' + f(e.end) : f(e.start);
   }
   const MONTHS_G = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
   const MONTHS_N = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-  // мероприятия: короткие (до недели), ещё не закончились; grade — фильтр по параллели (без параллели в плане — для всех)
-  function events(grade, days) {
+  // мероприятия плана воспитательной работы: ещё не закончились; grade — фильтр по параллели (без классов в плане — для всех);
+  // short — только короткие (до недели, без месячников и сроков «до …») — для «Ближайших событий»
+  function evGradeOk(e, grade) { return !grade || !(e.grades || []).length || e.grades.includes(+grade); }
+  function events(grade, days, short) {
     const today = isoDay(new Date()), lim = days ? isoDay(new Date(Date.now() + days * 864e5)) : '9999';
     return ((((data.school || {}).events || {}).items) || []).filter((e) => {
-      const len = (new Date(e.end || e.start) - new Date(e.start)) / 864e5;
-      return len <= 7 && (e.end || e.start) >= today && e.start <= lim && (!grade || !(e.grades || []).length || e.grades.includes(+grade));
+      if (!e.start) return false;
+      if (short && (e.month || e.until || (new Date(e.end || e.start) - new Date(e.start)) / 864e5 > 7)) return false;
+      return (e.end || e.start) >= today && e.start <= lim && evGradeOk(e, grade);
     });
   }
-  function evRow(e) { return '<div class="ev"><div class="d">' + evDate(e) + '</div><div>' + esc(evName(e)) + (e.who ? '<div class="muted">' + esc(e.who) + '</div>' : '') + '</div></div>'; }
+  function evRow(e, when) {
+    const meta = [e.who, e.sec].filter(Boolean).map(esc).join(' · ');
+    return '<div class="ev"><div class="d">' + esc(when || evDate(e)) + '</div><div>' + esc(evName(e)) + (meta ? '<div class="muted">' + meta + '</div>' : '') + '</div></div>';
+  }
   function viewUpcoming() {
     const gs = [...new Set(myClasses.map(gradeOf))];
-    const list = events(null, 14).filter((e) => !gs.length || !(e.grades || []).length || e.grades.some((g) => gs.includes(g))).slice(0, 4);
+    const list = events(null, 14, true).filter((e) => !gs.length || !(e.grades || []).length || e.grades.some((g) => gs.includes(g))).slice(0, 4);
     return list.length ? fold('upcoming', '🎉 Ближайшие события', list.map(evRow).join('')) : '';
   }
   function viewClubs() {
@@ -496,11 +505,18 @@
     const gs = [...new Set(myClasses.map(gradeOf))];
     if (evGrade === null) evGrade = gs.length === 1 ? gs[0] : 0;
     let b = '<div class="chips wrap"><button data-evgrade="0"' + (!evGrade ? ' class="on"' : '') + '>Все</button>' + [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((g) => '<button data-evgrade="' + g + '"' + (g === evGrade ? ' class="on"' : '') + '>' + g + '</button>').join('') + '</div>';
-    const list = events(evGrade, evAll ? 0 : 45);
-    let m = '';
-    b += list.length ? list.map((e) => { const mm = e.start.slice(0, 7); const hd = mm !== m ? '<h3>' + MONTHS_N[+mm.slice(5) - 1] + '</h3>' : ''; m = mm; return hd + evRow(e); }).join('').replace(/<\/h3><div class="ev">/g, '</h3><div class="ev" style="border-top:0">')
-      : '<div class="muted">В ближайшие недели мероприятий нет.</div>';
+    const today = isoDay(new Date()), list = events(evGrade, evAll ? 0 : 45);
+    const now = list.filter((e) => e.start < today).sort((x, y) => x.end.localeCompare(y.end));
+    const next = list.filter((e) => e.start >= today);
+    const group = (title, arr) => '<h3>' + title + '</h3>' + arr.map((e) => evRow(e)).join('').replace('<div class="ev">', '<div class="ev" style="border-top:0">');
+    let m = '', chunk = [];
+    if (now.length) b += group('Уже идут', now);
+    next.forEach((e) => { const mm = e.start.slice(0, 7); if (mm !== m && chunk.length) { b += group(MONTHS_N[+m.slice(5) - 1], chunk); chunk = []; } m = mm; chunk.push(e); });
+    if (chunk.length) b += group(MONTHS_N[+m.slice(5) - 1], chunk);
+    if (!list.length) b += '<div class="muted">В ближайшие недели мероприятий нет.</div>';
     if (!evAll) b += '<div class="btn-row"><button class="btn-wide" data-evall="1">Показать до конца учебного года</button></div>';
+    const und = (ev.items || []).filter((e) => !e.start && evGradeOk(e, evGrade));
+    if (und.length) b += sub('В течение года (' + und.length + ')', und.map((e) => evRow(e, e.when)).join('').replace('<div class="ev">', '<div class="ev" style="border-top:0">'));
     b += '<div class="btn-row">' + btn(ev.pdf, '📄 План воспитательной работы (PDF)') + '</div>';
     return b;
   }
