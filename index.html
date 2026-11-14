@@ -495,14 +495,16 @@
     const gs = [...new Set(myClasses.map(gradeOf))];
     const all = events(null, 0, true).filter((e) => !gs.length || !(e.grades || []).length || e.grades.some((g) => gs.includes(g)));
     if (!all.length) return '';
-    const now = new Date(), mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (now.getDay() + 6) % 7);
+    // в субботу и воскресенье учебная неделя уже прошла — показываем с сегодняшнего дня до конца следующей недели
+    const now = new Date(), wknd = now.getDay() === 6 || now.getDay() === 0;
+    const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (now.getDay() + 6) % 7 + (wknd ? 7 : 0));
     for (let w = 0; w < 12; w++) {
       const a = new Date(mon.getTime() + w * 7 * 864e5), b = new Date(a.getTime() + 6 * 864e5);
-      const from = isoDay(a), to = isoDay(b);
-      const list = all.filter((e) => e.start <= to && (e.end || e.start) >= from);
+      const from = w === 0 && wknd ? isoDay(now) : isoDay(a), to = isoDay(b);
+      const list = all.filter((e) => e.start <= to && (e.end || e.start) >= from && !(w === 0 && wknd && e.start < from));
       if (!list.length) continue;
       const span = a.getDate() + (a.getMonth() === b.getMonth() ? '' : ' ' + MONTHS_G[a.getMonth()]) + '–' + b.getDate() + ' ' + MONTHS_G[b.getMonth()];
-      const title = w === 0 ? '🎉 События этой недели' : w === 1 ? '🎉 События следующей недели · ' + span : '🎉 Ближайшие события · ' + span;
+      const title = w === 0 && !wknd ? '🎉 События этой недели' : w === 0 || w === 1 && !wknd ? '🎉 События следующей недели · ' + span : '🎉 Ближайшие события · ' + span;
       return fold('upcoming', title, list.map((e) => evRow(e)).join(''));
     }
     return '';
