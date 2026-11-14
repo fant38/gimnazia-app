@@ -400,7 +400,8 @@
       h += actual.length ? actual.map((p) => post({ ...p, badge: untilLabel(p.until, today) }, false, false)).join('')
         : '<div class="card muted">Актуальных изменений нет</div>';
     }
-    const subLink = (data.channel || {}).subscribe, clsLink = (data.channel || {}).classes;
+    const subLink = (data.channel || {}).subscribe, clsLink = (data.channel || {}).classes, siteLink = (data.channel || {}).site;
+    if (siteLink) h += '<div class="btn-row"><button class="btn-wide" data-open="' + esc(siteLink) + '">🌐 Посмотреть расписание на сайте</button></div>';
     if (subLink || clsLink) {
       h += fold('settings', '⚙️ Настройки расписания',
         (subLink ? '<button class="btn-wide notify" data-open="' + esc(subLink) + '">🔔 Присылать изменения мне в MAX</button>' : '') +
