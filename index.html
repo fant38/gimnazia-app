@@ -352,6 +352,22 @@
     } catch (x) { /* не важно */ }
   }
   loadClasses();
+  // классы из бота: ссылка «📅 Открыть расписание» в боте — max.ru/<бот>?startapp=c<base64url «7а,5б»> (бот знает классы, в т.ч. из «Сферума»).
+  // Отмечаем, только если человек сам классы в приложении не выбирал.
+  (function () {
+    let sp = '';
+    try { sp = (W && W.initDataUnsafe && W.initDataUnsafe.start_param) || ''; } catch (x) { /* */ }
+    if (!sp) try { sp = new URLSearchParams((W && W.initData) || '').get('start_param') || new URLSearchParams(location.search).get('startapp') || ''; } catch (x) { /* */ }
+    if (!/^c[A-Za-z0-9_-]+$/.test(sp)) return;
+    let keys = [];
+    try { const b = sp.slice(1).replace(/-/g, '+').replace(/_/g, '/'); keys = decodeURIComponent(escape(atob(b + '==='.slice((b.length + 3) % 4)))).split(',').filter(Boolean); } catch (x) { return; }
+    let src = null;
+    try { src = localStorage.getItem('miniapp.myclasses.src'); } catch (x) { /* */ }
+    if (!keys.length || src === 'manual') return;
+    myClasses = keys.slice(0, 2);
+    try { localStorage.setItem('miniapp.myclasses.src', 'bot'); } catch (x) { /* */ }
+    saveClasses();
+  })();
 
   function fold(id, title, body) {
     return '<details class="card fold"' + (folds[id] ? ' open' : '') + '><summary data-fold="' + id + '">' + esc(title) + '</summary><div class="fold-body">' + body + '</div></details>';
@@ -649,6 +665,7 @@
     if (myChip) {
       const k = myChip.dataset.mycls;
       myClasses = myClasses.includes(k) ? myClasses.filter((x) => x !== k) : myClasses.concat(k).slice(-2);
+      try { localStorage.setItem('miniapp.myclasses.src', 'manual'); } catch (x) { /* не важно */ }
       saveClasses();
       draw(); return;
     }
