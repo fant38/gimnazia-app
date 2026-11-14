@@ -251,7 +251,7 @@
       const nx = hol.find((x) => x.start > today);
       if (nx) {
         const days = Math.round((new Date(nx.start + 'T00:00:00') - new Date(today + 'T00:00:00')) / 864e5);
-        h += '<div class="big">🏖 До ' + esc(nx.name.toLowerCase().replace(/\s*\(.*\)/, '')) + ' каникул ' + days + ' ' + plural(days, 'день', 'дня', 'дней') + '</div>' +
+        h += '<div class="big">🏖 До ' + esc(nx.name.toLowerCase().replace(/\s*\(.*\)/, '').replace(/ие$/, 'их')) + ' каникул ' + days + ' ' + plural(days, 'день', 'дня', 'дней') + '</div>' +
           '<div class="muted sub">' + dmy(nx.start) + ' – ' + dmy(nx.end) + ' · ' + nx.days + ' ' + plural(nx.days, 'день', 'дня', 'дней') + '</div>';
       }
     }
