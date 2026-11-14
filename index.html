@@ -490,10 +490,22 @@
     const meta = [e.who, e.sec].filter(Boolean).map(esc).join(' · ');
     return '<div class="ev"><div class="d">' + esc(when || evDate(e)) + '</div><div>' + esc(evName(e)) + (meta ? '<div class="muted">' + meta + '</div>' : '') + '</div></div>';
   }
+  // события этой недели (пн–вс), а если на ней ничего не осталось — ближайшей недели, где они есть (каникулы пропускаются)
   function viewUpcoming() {
     const gs = [...new Set(myClasses.map(gradeOf))];
-    const list = events(null, 14, true).filter((e) => !gs.length || !(e.grades || []).length || e.grades.some((g) => gs.includes(g))).slice(0, 4);
-    return list.length ? fold('upcoming', '🎉 Ближайшие события', list.map(evRow).join('')) : '';
+    const all = events(null, 0, true).filter((e) => !gs.length || !(e.grades || []).length || e.grades.some((g) => gs.includes(g)));
+    if (!all.length) return '';
+    const now = new Date(), mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (now.getDay() + 6) % 7);
+    for (let w = 0; w < 12; w++) {
+      const a = new Date(mon.getTime() + w * 7 * 864e5), b = new Date(a.getTime() + 6 * 864e5);
+      const from = isoDay(a), to = isoDay(b);
+      const list = all.filter((e) => e.start <= to && (e.end || e.start) >= from);
+      if (!list.length) continue;
+      const span = a.getDate() + (a.getMonth() === b.getMonth() ? '' : ' ' + MONTHS_G[a.getMonth()]) + '–' + b.getDate() + ' ' + MONTHS_G[b.getMonth()];
+      const title = w === 0 ? '🎉 События этой недели' : w === 1 ? '🎉 События следующей недели · ' + span : '🎉 Ближайшие события · ' + span;
+      return fold('upcoming', title, list.map((e) => evRow(e)).join(''));
+    }
+    return '';
   }
   function viewClubs() {
     const c = (data.school || {}).clubs || {};
@@ -573,7 +585,8 @@
     h += fold('i-tests', '📝 Контрольные и экзамены', b);
     // ---- правила
     h += '<h2>Правила</h2>';
-    b = ul(tx.routine) + (page('rights') ? sub('Права и обязанности учащегося', blocksHtml(page('rights').blocks, page('rights').url)) : '');
+    b = ul(tx.routine) + (page('rights') ? sub('Права и обязанности учащегося', blocksHtml(page('rights').blocks, page('rights').url)) : '') +
+      (sc.rules_pdf || ln.rules_pdf ? '<div class="btn-row">' + btn(sc.rules_pdf || ln.rules_pdf, '📄 Правила внутреннего распорядка обучающихся (PDF, целиком)') + '</div>' : '');
     h += fold('i-routine', '📋 Распорядок, права и обязанности', b);
     if ((tx.uniform || []).length) h += fold('i-uniform', '👔 Школьная форма', ul(tx.uniform));
     if ((tx.devices || []).length) h += fold('i-devices', '📵 Телефоны и гаджеты', ul(tx.devices));
