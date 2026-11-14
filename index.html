@@ -80,6 +80,17 @@
   .fold-body .chips { padding-bottom: 6px; }
   .fold-body .btn-wide.notify:last-child { margin-bottom: 0; }
   .fold-body > .card:first-child, .fold-body > .chips + .card { border-top: 0; }
+  .now { border-left: 3px solid var(--accent); }
+  .now .big { font-size: 16px; font-weight: 600; }
+  .now .sub { margin-top: 2px; }
+  .info ul { margin: 4px 0 8px; padding-left: 18px; }
+  .info li { margin: 4px 0; }
+  .info h3 { font-size: 14px; margin: 10px 0 4px; }
+  .kv { display: flex; justify-content: space-between; gap: 10px; padding: 5px 0; border-top: 1px solid var(--line); }
+  .kv:first-child { border-top: 0; }
+  .kv .muted { text-align: right; }
+  .tests { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .btn-row { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
   .empty { text-align: center; color: var(--muted); padding: 32px 16px; }
   .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 16px; }
   #viewer { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.94); display: none; overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y pinch-zoom; }
@@ -93,7 +104,7 @@
 <body>
 <header>
   <div class="head"><img id="logo" alt="" hidden><div class="t" id="title">Гимназия</div><button id="sub" hidden>Подписаться</button></div>
-  <nav><button data-tab="schedule" class="on">Мой день</button><button data-tab="news">Новости</button></nav>
+  <nav><button data-tab="schedule" class="on">Мой день</button><button data-tab="info">Гимназисту</button><button data-tab="news">Новости</button></nav>
 </header>
 <main id="main"><div class="empty">Загрузка…</div></main>
 <div id="viewer"><img alt=""><button class="x" aria-label="Закрыть">✕</button><div class="hint">Нажмите на картинку, чтобы увеличить</div></div>
@@ -102,8 +113,8 @@
   const W = window.WebApp || null;
   const $ = (s) => document.querySelector(s);
   const main = $('#main');
-  let data = null, tab = 'schedule', cls = null, menuDay = null, foodGroup = null, myClasses = [], folds = {};
-  try { const t = localStorage.getItem('miniapp.tab'); tab = t === 'news' ? t : 'schedule'; cls = localStorage.getItem('miniapp.class'); foodGroup = localStorage.getItem('miniapp.food'); myClasses = JSON.parse(localStorage.getItem('miniapp.myclasses') || '[]'); } catch (e) { /* хранилище недоступно */ }
+  let data = null, tab = 'schedule', cls = null, menuDay = null, foodGroup = null, myClasses = [], folds = {}, infoGrade = null;
+  try { const t = localStorage.getItem('miniapp.tab'); tab = ['news', 'info'].includes(t) ? t : 'schedule'; cls = localStorage.getItem('miniapp.class'); foodGroup = localStorage.getItem('miniapp.food'); myClasses = JSON.parse(localStorage.getItem('miniapp.myclasses') || '[]'); } catch (e) { /* хранилище недоступно */ }
 
   function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   function safeUrl(u) { return /^https?:\/\//i.test(u || '') ? u : null; }
@@ -167,12 +178,95 @@
   }
 
   const WD = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'];
-  // 5 ближайших учебных дней: с сегодняшнего (после 15:00 — со следующего), без субботы и воскресенья
-  function schoolDays() {
+  const MON_GEN = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+  const MON_PREP = ['январе', 'феврале', 'марте', 'апреле', 'мае', 'июне', 'июле', 'августе', 'сентябре', 'октябре', 'ноябре', 'декабре'];
+  const gradeOf = (k) => parseInt(k, 10) || 0;
+  const dmy = (iso) => { const d = new Date(iso + 'T00:00:00'); return d.getDate() + ' ' + MON_GEN[d.getMonth()]; };
+  // каникулы и праздники из календарного графика; дополнительные каникулы — только для 1 классов
+  function holidaysFor(k) { return (((data.school || {}).year || {}).holidays || []).filter((h) => !h.first_only || gradeOf(k) === 1); }
+  function isOff(d, k) {
+    const iso = isoDay(d), y = (data.school || {}).year || {};
+    if (d.getDay() % 6 === 0) return true;
+    return holidaysFor(k).some((h) => h.start <= iso && iso <= h.end) || (y.offdays || []).some((o) => o.date === iso);
+  }
+  // 5 ближайших учебных дней: с сегодняшнего (после 15:00 — со следующего), без выходных, каникул и праздников
+  function schoolDays(k) {
     const out = [], d = new Date();
     if (d.getHours() >= 15) d.setDate(d.getDate() + 1);
-    while (out.length < 5) { if (d.getDay() % 6 !== 0) out.push(new Date(d)); d.setDate(d.getDate() + 1); }
+    for (let i = 0; out.length < 5 && i < 120; i++) { if (!isOff(d, k)) out.push(new Date(d)); d.setDate(d.getDate() + 1); }
     return out;
+  }
+  // уроки класса на день: из изменений, если они есть, иначе основное расписание → [[номер, предмет, кабинет, изменён]]
+  function dayLessons(k, d) {
+    const tt = data.timetable || {}, iso = isoDay(d), wd = (d.getDay() + 6) % 7;
+    const ch = (((tt.changes || {})[iso] || {}).classes || {})[k];
+    if (ch) return ch.filter((l) => l[1]);
+    return (((tt.main || {})[wd] || {})[k] || []).map((l) => [l[0], l[1], l[2], false]).filter((l) => l[1]);
+  }
+  function bell(n) {
+    const m = String(((data.timetable || {}).bells || [])[n - 1] || '').match(/(\d{1,2}):(\d{2})\D+(\d{1,2}):(\d{2})/);
+    return m ? [m[1] * 60 + +m[2], m[3] * 60 + +m[4], m[1] + ':' + m[2]] : null;
+  }
+  function teacherOf(k) {
+    const t = (data.school || {}).teachers || {};
+    if (t[k]) return t[k];
+    const same = Object.keys(t).filter((x) => gradeOf(x) === gradeOf(k));
+    return same.length === 1 ? t[same[0]] : null;   // 10 тех / 10 ен — один 10 А на сайте
+  }
+  function lessonText(l) { return esc(l[1]) + (l[2] ? ', каб. ' + esc(l[2]) : ''); }
+  // «Сейчас»: идёт урок / перемена / первый урок / уроки закончились
+  function nowLine(k) {
+    const d = new Date(), mins = d.getHours() * 60 + d.getMinutes();
+    if (isOff(d, k)) return null;
+    const ls = dayLessons(k, d).map((l) => ({ l, b: bell(l[0]) })).filter((x) => x.b);
+    if (!ls.length) return null;
+    const cur = ls.find((x) => x.b[0] <= mins && mins < x.b[1]);
+    const next = ls.find((x) => x.b[0] > mins);
+    if (cur) {
+      return '<div class="big">Идёт ' + cur.l[0] + '-й урок: ' + lessonText(cur.l) + '</div><div class="muted sub">до звонка ' + (cur.b[1] - mins) + ' мин' +
+        (next ? ' · дальше ' + next.l[0] + '-й: ' + lessonText(next.l) + ' в ' + next.b[2] : ' · это последний урок') + '</div>';
+    }
+    if (next && next === ls[0]) {
+      return '<div class="big">Первый урок в ' + next.b[2] + '</div><div class="muted sub">' + next.l[0] + '-й: ' + lessonText(next.l) + ' · через ' + fmtMin(next.b[0] - mins) + '</div>';
+    }
+    if (next) return '<div class="big">Перемена</div><div class="muted sub">' + next.l[0] + '-й урок в ' + next.b[2] + ' (через ' + (next.b[0] - mins) + ' мин): ' + lessonText(next.l) + '</div>';
+    return '<div class="big">Уроки на сегодня закончились</div>';
+  }
+  function fmtMin(m) { return m >= 60 ? Math.floor(m / 60) + ' ч ' + (m % 60) + ' мин' : m + ' мин'; }
+  function viewNow() {
+    const rows = myClasses.map((k) => { const x = nowLine(k); return x ? (myClasses.length > 1 ? '<div class="muted">' + esc(classLabel(k)) + '</div>' : '') + x : ''; }).filter(Boolean);
+    return rows.length ? '<div class="card now" id="now">' + rows.join('<div style="height:8px"></div>') + '</div>' : '';
+  }
+  function classLabel(k) { return (((data.timetable || {}).classes || []).find((c) => c.key === k) || {}).label || k; }
+  // До каникул N дней и ближайшие нерабочие дни
+  function viewCountdown() {
+    const y = (data.school || {}).year;
+    if (!y) return '';
+    const today = isoDay(new Date()), k = myClasses[0] || '';
+    const hol = holidaysFor(k).slice().sort((a, b) => a.start.localeCompare(b.start));
+    const cur = hol.find((h) => h.start <= today && today <= h.end);
+    let h = '';
+    if (cur) h += '<div class="big">🏖 ' + esc(cur.name) + ' каникулы — до ' + dmy(cur.end) + '</div>';
+    else {
+      const nx = hol.find((x) => x.start > today);
+      if (nx) {
+        const days = Math.round((new Date(nx.start + 'T00:00:00') - new Date(today + 'T00:00:00')) / 864e5);
+        h += '<div class="big">🏖 До ' + esc(nx.name.toLowerCase().replace(/\s*\(.*\)/, '')) + ' каникул ' + days + ' ' + plural(days, 'день', 'дня', 'дней') + '</div>' +
+          '<div class="muted sub">' + dmy(nx.start) + ' – ' + dmy(nx.end) + ' · ' + nx.days + ' ' + plural(nx.days, 'день', 'дня', 'дней') + '</div>';
+      }
+    }
+    const lim = isoDay(new Date(Date.now() + 30 * 864e5));
+    (y.offdays || []).filter((o) => o.date >= today && o.date <= lim).forEach((o) => {
+      const d = new Date(o.date + 'T00:00:00');
+      h += '<div class="muted sub">📅 ' + dmy(o.date) + ' (' + WD[(d.getDay() + 6) % 7].toLowerCase() + ') — выходной' + (o.name !== 'нерабочий день' ? ': ' + esc(o.name) : '') + '</div>';
+    });
+    return h ? '<div class="card now">' + h + '</div>' : '';
+  }
+  function plural(n, a, b, c) { const m = n % 10, mm = n % 100; return m === 1 && mm !== 11 ? a : m >= 2 && m <= 4 && (mm < 12 || mm > 14) ? b : c; }
+  // контрольные параллели в этом месяце (в графике оценочных процедур только месяцы, без дат)
+  function testsMonth(k, ym) {
+    const g = ((((data.school || {}).tests || {}).grades || {})[String(gradeOf(k))] || {})[ym] || [];
+    return g.map((x) => esc(x[0]) + (x[1] > 1 ? ' ×' + x[1] : '')).join(', ');
   }
   function lessonRow(tt, n, subj, cab, ch) {
     const t = (tt.bells || [])[n - 1];
@@ -189,10 +283,11 @@
     let h = '<h2>Расписание класса</h2><div class="chips wrap">' + tt.classes.map((c) =>
       '<button data-mycls="' + esc(c.key) + '"' + (myClasses.includes(c.key) ? ' class="on"' : '') + '>' + esc(c.label) + '</button>').join('') + '</div>';
     if (!myClasses.length) return h;
+    h = viewNow() + h;
     for (const k of myClasses) {
       const label = (tt.classes.find((c) => c.key === k) || {}).label || k;
       let any = false;
-      const days = schoolDays().map((d) => {
+      const days = schoolDays(k).map((d) => {
         const iso = isoDay(d), wd = (d.getDay() + 6) % 7;
         const ch = ((tt.changes || {})[iso] || {}).classes || {};
         const head = WD[wd] + ', ' + d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
@@ -210,8 +305,13 @@
           : '<li class="muted">Уроков нет</li>';
         return '<div class="tt-day"><div class="tt-day-h">' + esc(head) + '</div><ol class="tt">' + rows + '</ol></div>';
       }).join('');
-      h += '<div class="card"><div class="tt-title">' + esc(label) + '</div>' + days +
-        (any ? '<div class="muted">✏️ — изменения, внесённые в расписание (по файлам изменений на сайте школы).</div>' : '') + '</div>';
+      const teacher = teacherOf(k), now = new Date(), ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+      const tests = testsMonth(k, ym);
+      h += '<div class="card"><div class="tt-title">' + esc(label) + '</div>' +
+        (teacher ? '<div class="muted">Классный руководитель: ' + esc(teacher) + '</div>' : '') + days +
+        (any ? '<div class="muted">✏️ — изменения, внесённые в расписание (по файлам изменений на сайте школы).</div>' : '') +
+        (tests ? '<div class="tests">📝 <b>Контрольные в ' + MON_PREP[now.getMonth()] + '</b> (' + gradeOf(k) + ' классы): ' + tests +
+          '<div class="muted">Точные даты называет учитель; по графику оценочных процедур.</div></div>' : '') + '</div>';
     }
     return h;
   }
@@ -241,7 +341,7 @@
 
   function viewSchedule() {
     const list = data.schedule || [];
-    let h = viewTimetable();
+    let h = viewCountdown() + viewTimetable();
     // 4. меню столовой — сразу после расписания, свёрнуто
     if (((data.menu || {}).groups || []).length) h += fold('menu', '🍽 Меню столовой', viewMenu());
     if (list.length && !data.timetable) {   // файл расписания — только если расписание текстом получить не удалось
@@ -313,13 +413,60 @@
     return h;
   }
 
+  function ul(list) { return (list && list.length) ? '<ul>' + list.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : ''; }
+  function btn(url, text) { return url ? '<button class="btn-wide" data-open="' + esc(url) + '">' + esc(text) + '</button>' : ''; }
+  function viewInfo() {
+    const sc = data.school || {}, tx = sc.texts || {}, ln = sc.links || {}, y = sc.year || {};
+    if (!sc.texts) return '<div class="empty">Сведения пока не загружены</div>';
+    let h = '';
+    // каникулы и четверти
+    let b = '';
+    if ((y.quarters || []).length) b += '<h3>Четверти</h3>' + y.quarters.map((q) => '<div class="kv"><span>' + esc(q.name) + '</span><span class="muted">' + dmy(q.start) + ' – ' + dmy(q.end) + '</span></div>').join('');
+    if ((y.holidays || []).length) b += '<h3>Каникулы</h3>' + y.holidays.map((x) => '<div class="kv"><span>' + esc(x.name) + '</span><span class="muted">' + dmy(x.start) + ' – ' + dmy(x.end) + '<br>' + x.days + ' ' + plural(x.days, 'день', 'дня', 'дней') + '</span></div>').join('');
+    if ((y.offdays || []).length) b += '<h3>Выходные в учебное время</h3>' + y.offdays.map((o) => '<div class="kv"><span>' + dmy(o.date) + '</span><span class="muted">' + esc(o.name) + '</span></div>').join('');
+    if (y.start) b += '<div class="muted" style="margin-top:8px">Учебный год: ' + dmy(y.start) + ' – ' + dmy(y.end) + '</div>';
+    b += '<div class="btn-row">' + btn(y.pdf, '📄 Календарный учебный график (PDF)') + '</div>';
+    h += fold('i-year', '🗓 Каникулы и четверти', b);
+    // режим занятий и звонки
+    const bells = (data.timetable || {}).bells || [];
+    b = ul(tx.regime) + (bells.length ? '<h3>Расписание звонков</h3>' + bells.map((t, i) => '<div class="kv"><span>' + (i + 1) + '-й урок</span><span class="muted">' + esc(t) + '</span></div>').join('') : '') +
+      '<h3>Если ребёнок не придёт</h3>' + ul(tx.absence) + '<div class="btn-row">' + btn(ln.regime_pdf, '📄 Режим занятий (PDF)') + '</div>';
+    h += fold('i-regime', '⏰ Режим занятий и звонки', b);
+    // оценивание
+    h += fold('i-grading', '📊 Как ставят оценки', ul(tx.grading) + '<div class="btn-row">' + btn(ln.grading_pdf, '📄 Положение о текущем контроле и аттестации (PDF)') + '</div>');
+    // контрольные и экзамены
+    const tests = sc.tests || {}, grades = Object.keys(tests.grades || {}).sort((a, c) => a - c);
+    const mine = [...new Set(myClasses.map(gradeOf))].filter((g) => grades.includes(String(g)));
+    if (!grades.includes(String(infoGrade))) infoGrade = mine[0] || +grades[0] || null;
+    b = '';
+    if (grades.length) {
+      b += '<div class="chips wrap">' + grades.map((g) => '<button data-igrade="' + g + '"' + (+g === +infoGrade ? ' class="on"' : '') + '>' + g + ' кл.</button>').join('') + '</div>';
+      const today = new Date(), cur = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+      const months = Object.keys((tests.grades || {})[String(infoGrade)] || {}).filter((m) => m >= cur).sort();
+      b += months.length ? months.map((m) => '<h3>' + ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'][+m.slice(5) - 1] + '</h3><div>' +
+        tests.grades[String(infoGrade)][m].map((x) => esc(x[0]) + (x[1] > 1 ? ' ×' + x[1] : '')).join(', ') + '</div>').join('') : '<div class="muted">До конца года контрольных по графику нет.</div>';
+      b += '<div class="muted" style="margin-top:8px">В графике только месяцы — точные даты называет учитель.</div>';
+    }
+    b += '<h3>ГИА (9 и 11 классы)</h3>' + ul(tx.gia) + '<div class="btn-row">' + btn(tests.pdf, '📄 График оценочных процедур (PDF)') + btn(ln.gia, 'ВПР и ГИА на сайте гимназии') + '</div>';
+    h += fold('i-tests', '📝 Контрольные и экзамены', b);
+    return '<div class="info">' + h + '</div>';
+  }
+
   function viewNews() {
     return (data.news || []).length ? data.news.map((p) => post(p, true)).join('') : '<div class="empty">Новостей пока нет</div>';
   }
 
+  // «Сейчас» обновляется раз в 30 секунд, не перерисовывая всю страницу
+  setInterval(() => {
+    const el = document.getElementById('now');
+    if (!el || !data || tab !== 'schedule') return;
+    const tmp = document.createElement('div'); tmp.innerHTML = viewNow();
+    if (tmp.firstChild) el.replaceWith(tmp.firstChild); else el.remove();
+  }, 30000);
+
   function draw() {
     document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
-    main.innerHTML = (tab === 'news' ? viewNews() : viewSchedule()) +
+    main.innerHTML = (tab === 'news' ? viewNews() : tab === 'info' ? viewInfo() : viewSchedule()) +
       '<div class="foot">Обновлено ' + fmtDate(data.generated * 1000) + '</div>';
   }
 
@@ -342,6 +489,8 @@
     if (dayChip) { menuDay = dayChip.dataset.day; draw(); return; }
     const sum = t.closest('[data-fold]');
     if (sum) { folds[sum.dataset.fold] = !sum.parentNode.open; return; }
+    const ig = t.closest('[data-igrade]');
+    if (ig) { infoGrade = +ig.dataset.igrade; draw(); return; }
     const myChip = t.closest('[data-mycls]');
     if (myChip) {
       const k = myChip.dataset.mycls;
