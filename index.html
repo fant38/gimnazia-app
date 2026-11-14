@@ -577,7 +577,8 @@
       (ct.hours || []).map((x) => '<div class="kv"><span>' + esc(x[0]) + '</span><span class="muted">' + esc(x[1]) + '</span></div>').join('') +
       '<h3>Адрес</h3><p>' + esc(ct.address || '') + '</p>' + (ct.route ? '<p class="muted">' + esc(ct.route) + '</p>' : '') +
       '<div class="btn-row">' + btn(ct.map, '🗺 Открыть на карте') + '</div>');
-    if ((tx.admin || []).length) h += fold('i-admin', '👩‍💼 Администрация', tx.admin.map((a) => '<div class="kv"><span>' + esc(a[0]) + '</span><span class="muted">' + esc(a[1]) + (a[2] ? '<br>' + esc(a[2]) : '') + '</span></div>').join(''));
+    if ((tx.admin || []).length) h += fold('i-admin', '👩‍💼 Администрация', tx.admin.map((a) => '<div class="kv"><span>' + esc(a[0]) + '</span><span class="muted">' + esc(a[1]) +
+      (a[2] ? '<br>' + a[2].split(' · ').map((x) => x.includes('@') ? '<a class="tel" href="mailto:' + esc(x) + '">' + esc(x) + '</a>' : /^\+/.test(x) ? tel(x, x.replace(/[^\d+]/g, '')) : esc(x)).join(' · ') : '') + '</span></div>').join(''));
     const tch = sc.teachers || {}, tk = Object.keys(tch).sort((a, c) => gradeOf(a) - gradeOf(c) || a.localeCompare(c));
     if (tk.length) h += fold('i-teachers', '🧑‍🏫 Классные руководители', tk.map((k) => '<div class="kv"><span>' + esc(classLabel(k)) + '</span><span class="muted">' + esc(tch[k]) + '</span></div>').join(''));
     return '<div class="info">' + h + '</div>';
