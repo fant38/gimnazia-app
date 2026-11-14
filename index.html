@@ -71,12 +71,15 @@
   .tt .lt { flex: 0 0 auto; color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
   .tt li.chg .ls { color: var(--warn); font-weight: 600; }
   .tt-title { font-size: 17px; font-weight: 700; margin-bottom: 2px; }
-  details.settings summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; align-items: center; justify-content: space-between; }
-  details.settings summary::-webkit-details-marker { display: none; }
-  details.settings summary::after { content: '▾'; color: var(--muted); transition: transform .15s; }
-  details.settings[open] summary::after { transform: rotate(180deg); }
-  .settings-body { padding-top: 10px; }
-  .settings-body .btn-wide.notify:last-child { margin-bottom: 0; }
+  details.fold summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; align-items: center; justify-content: space-between; }
+  details.fold summary::-webkit-details-marker { display: none; }
+  details.fold summary::after { content: '▾'; color: var(--muted); transition: transform .15s; }
+  details.fold[open] summary::after { transform: rotate(180deg); }
+  .fold-body { padding-top: 10px; }
+  .fold-body .card { background: none; border-radius: 0; padding: 10px 0 4px; margin: 0; border-top: 1px solid var(--line); }
+  .fold-body .chips { padding-bottom: 6px; }
+  .fold-body .btn-wide.notify:last-child { margin-bottom: 0; }
+  .fold-body > .card:first-child, .fold-body > .chips + .card { border-top: 0; }
   .empty { text-align: center; color: var(--muted); padding: 32px 16px; }
   .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 16px; }
   #viewer { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.94); display: none; overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y pinch-zoom; }
@@ -90,7 +93,7 @@
 <body>
 <header>
   <div class="head"><img id="logo" alt="" hidden><div class="t" id="title">Гимназия</div><button id="sub" hidden>Подписаться</button></div>
-  <nav><button data-tab="schedule" class="on">Расписание</button><button data-tab="menu">Меню</button><button data-tab="news">Новости</button></nav>
+  <nav><button data-tab="schedule" class="on">Мой день</button><button data-tab="menu">Меню</button><button data-tab="news">Новости</button></nav>
 </header>
 <main id="main"><div class="empty">Загрузка…</div></main>
 <div id="viewer"><img alt=""><button class="x" aria-label="Закрыть">✕</button><div class="hint">Нажмите на картинку, чтобы увеличить</div></div>
@@ -99,7 +102,7 @@
   const W = window.WebApp || null;
   const $ = (s) => document.querySelector(s);
   const main = $('#main');
-  let data = null, tab = 'schedule', cls = null, menuDay = null, foodGroup = null, myClasses = [], settingsOpen = false;
+  let data = null, tab = 'schedule', cls = null, menuDay = null, foodGroup = null, myClasses = [], folds = {};
   try { const t = localStorage.getItem('miniapp.tab'); tab = ['news', 'menu'].includes(t) ? t : 'schedule'; cls = localStorage.getItem('miniapp.class'); foodGroup = localStorage.getItem('miniapp.food'); myClasses = JSON.parse(localStorage.getItem('miniapp.myclasses') || '[]'); } catch (e) { /* хранилище недоступно */ }
 
   function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
@@ -185,7 +188,7 @@
     myClasses = myClasses.filter((k) => keys.includes(k));
     let h = '<h2>Расписание класса</h2><div class="chips wrap">' + tt.classes.map((c) =>
       '<button data-mycls="' + esc(c.key) + '"' + (myClasses.includes(c.key) ? ' class="on"' : '') + '>' + esc(c.label) + '</button>').join('') + '</div>';
-    if (!myClasses.length) return h + '<div class="card muted">Выберите свой класс — учителю можно два.</div>';
+    if (!myClasses.length) return h;
     for (const k of myClasses) {
       const label = (tt.classes.find((c) => c.key === k) || {}).label || k;
       let any = false;
@@ -213,10 +216,35 @@
     return h;
   }
 
+  // выбор классов запоминается: localStorage + хранилище устройства MAX (если приложение его даёт)
+  const DS = W && W.DeviceStorage && typeof W.DeviceStorage.setItem === 'function' ? W.DeviceStorage : null;
+  function saveClasses() {
+    const v = JSON.stringify(myClasses);
+    try { localStorage.setItem('miniapp.myclasses', v); } catch (x) { /* не важно */ }
+    try { if (DS) Promise.resolve(DS.setItem('myclasses', v)).catch(() => {}); } catch (x) { /* не важно */ }
+  }
+  function loadClasses() {
+    if (!DS || typeof DS.getItem !== 'function') return;
+    try {
+      Promise.resolve(DS.getItem('myclasses')).then((v) => {
+        v = v && typeof v === 'object' && 'value' in v ? v.value : v;
+        const got = JSON.parse(v || '[]');
+        if (Array.isArray(got) && got.length && !myClasses.length) { myClasses = got.slice(-2); try { localStorage.setItem('miniapp.myclasses', JSON.stringify(myClasses)); } catch (x) { /* */ } if (data) draw(); }
+      }).catch(() => {});
+    } catch (x) { /* не важно */ }
+  }
+  loadClasses();
+
+  function fold(id, title, body) {
+    return '<details class="card fold"' + (folds[id] ? ' open' : '') + '><summary data-fold="' + id + '">' + esc(title) + '</summary><div class="fold-body">' + body + '</div></details>';
+  }
+
   function viewSchedule() {
     const list = data.schedule || [];
     let h = viewTimetable();
-    if (list.length) {
+    // 4. меню столовой — сразу после расписания, свёрнуто
+    if (((data.menu || {}).groups || []).length) h += fold('menu', '🍽 Меню столовой', viewMenu());
+    if (list.length && !data.timetable) {   // файл расписания — только если расписание текстом получить не удалось
       if (!list.some((s) => s.id === cls)) cls = list[0].id;
       const cur = list.find((s) => s.id === cls);
       h += '<h2>' + (data.timetable ? 'Файл расписания' : 'Основное расписание') + '</h2>';
@@ -240,10 +268,9 @@
     }
     const subLink = (data.channel || {}).subscribe, clsLink = (data.channel || {}).classes;
     if (subLink || clsLink) {
-      h += '<details class="card settings"' + (settingsOpen ? ' open' : '') + '><summary data-settings>Настройки расписания</summary><div class="settings-body">' +
+      h += fold('settings', '⚙️ Настройки расписания',
         (subLink ? '<button class="btn-wide notify" data-open="' + esc(subLink) + '">🔔 Присылать изменения мне в MAX</button>' : '') +
-        (clsLink ? '<button class="btn-wide notify" data-open="' + esc(clsLink) + '">🏫 Выбрать класс — только мои уроки</button>' : '') +
-        '</div></details>';
+        (clsLink ? '<button class="btn-wide notify" data-open="' + esc(clsLink) + '">🏫 Выбрать класс — только мои уроки</button>' : ''));
     }
     if (!h) h = '<div class="empty">Расписание пока не опубликовано</div>';
     return h;
@@ -313,12 +340,13 @@
     if (nav) { tab = nav.dataset.tab; try { localStorage.setItem('miniapp.tab', tab); } catch (x) { /* не важно */ } draw(); window.scrollTo(0, 0); return; }
     const dayChip = t.closest('[data-day]');
     if (dayChip) { menuDay = dayChip.dataset.day; draw(); return; }
-    if (t.closest('[data-settings]')) { settingsOpen = !t.closest('details').open; return; }
+    const sum = t.closest('[data-fold]');
+    if (sum) { folds[sum.dataset.fold] = !sum.parentNode.open; return; }
     const myChip = t.closest('[data-mycls]');
     if (myChip) {
       const k = myChip.dataset.mycls;
       myClasses = myClasses.includes(k) ? myClasses.filter((x) => x !== k) : myClasses.concat(k).slice(-2);
-      try { localStorage.setItem('miniapp.myclasses', JSON.stringify(myClasses)); } catch (x) { /* не важно */ }
+      saveClasses();
       draw(); return;
     }
     const foodChip = t.closest('[data-food]');
