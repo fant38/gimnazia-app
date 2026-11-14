@@ -353,19 +353,20 @@
   }
   loadClasses();
   // классы из бота: ссылка «📅 Открыть расписание» в боте — max.ru/<бот>?startapp=c<base64url «7а,5б»> (бот знает классы, в т.ч. из «Сферума»).
-  // Отмечаем, только если человек сам классы в приложении не выбирал.
+  // Отмечаем, только если человек сам классы в приложении не выбирал; «a<base64url>» — классы, заданные администратором в админке: ставим всегда.
   (function () {
     let sp = '';
     try { sp = (W && W.initDataUnsafe && W.initDataUnsafe.start_param) || ''; } catch (x) { /* */ }
     if (!sp) try { sp = new URLSearchParams((W && W.initData) || '').get('start_param') || new URLSearchParams(location.search).get('startapp') || ''; } catch (x) { /* */ }
-    if (!/^c[A-Za-z0-9_-]+$/.test(sp)) return;
+    if (!/^[ca][A-Za-z0-9_-]+$/.test(sp)) return;
+    const byAdmin = sp[0] === 'a';
     let keys = [];
     try { const b = sp.slice(1).replace(/-/g, '+').replace(/_/g, '/'); keys = decodeURIComponent(escape(atob(b + '==='.slice((b.length + 3) % 4)))).split(',').filter(Boolean); } catch (x) { return; }
     let src = null;
     try { src = localStorage.getItem('miniapp.myclasses.src'); } catch (x) { /* */ }
-    if (!keys.length || src === 'manual') return;
+    if (!keys.length || (src === 'manual' && !byAdmin)) return;
     myClasses = keys.slice(0, 2);
-    try { localStorage.setItem('miniapp.myclasses.src', 'bot'); } catch (x) { /* */ }
+    try { localStorage.setItem('miniapp.myclasses.src', byAdmin ? 'admin' : 'bot'); } catch (x) { /* */ }
     saveClasses();
   })();
 
