@@ -93,7 +93,7 @@
 <body>
 <header>
   <div class="head"><img id="logo" alt="" hidden><div class="t" id="title">Гимназия</div><button id="sub" hidden>Подписаться</button></div>
-  <nav><button data-tab="schedule" class="on">Мой день</button><button data-tab="menu">Меню</button><button data-tab="news">Новости</button></nav>
+  <nav><button data-tab="schedule" class="on">Мой день</button><button data-tab="news">Новости</button></nav>
 </header>
 <main id="main"><div class="empty">Загрузка…</div></main>
 <div id="viewer"><img alt=""><button class="x" aria-label="Закрыть">✕</button><div class="hint">Нажмите на картинку, чтобы увеличить</div></div>
@@ -103,7 +103,7 @@
   const $ = (s) => document.querySelector(s);
   const main = $('#main');
   let data = null, tab = 'schedule', cls = null, menuDay = null, foodGroup = null, myClasses = [], folds = {};
-  try { const t = localStorage.getItem('miniapp.tab'); tab = ['news', 'menu'].includes(t) ? t : 'schedule'; cls = localStorage.getItem('miniapp.class'); foodGroup = localStorage.getItem('miniapp.food'); myClasses = JSON.parse(localStorage.getItem('miniapp.myclasses') || '[]'); } catch (e) { /* хранилище недоступно */ }
+  try { const t = localStorage.getItem('miniapp.tab'); tab = t === 'news' ? t : 'schedule'; cls = localStorage.getItem('miniapp.class'); foodGroup = localStorage.getItem('miniapp.food'); myClasses = JSON.parse(localStorage.getItem('miniapp.myclasses') || '[]'); } catch (e) { /* хранилище недоступно */ }
 
   function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
   function safeUrl(u) { return /^https?:\/\//i.test(u || '') ? u : null; }
@@ -319,7 +319,7 @@
 
   function draw() {
     document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
-    main.innerHTML = (tab === 'news' ? viewNews() : tab === 'menu' ? viewMenu() : viewSchedule()) +
+    main.innerHTML = (tab === 'news' ? viewNews() : viewSchedule()) +
       '<div class="foot">Обновлено ' + fmtDate(data.generated * 1000) + '</div>';
   }
 
