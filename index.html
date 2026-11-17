@@ -108,6 +108,14 @@
   .hot a, .info a.tel { color: var(--accent); font-weight: 600; text-decoration: none; }
   .kv a.tel { white-space: nowrap; }
   .tests { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .duty.mine, .flag { border-left: 4px solid var(--accent); }
+  .badge.duty { background: var(--accent-weak); color: var(--accent); }
+  .gia { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .gia summary { font-weight: 600; }
+  .gia-row { display: flex; gap: 8px; padding: 3px 0; }
+  .gia-row .gd { flex: 0 0 26px; color: var(--muted); }
+  .gia-row.today .gd { color: var(--accent); font-weight: 700; }
+  .gia-wd { margin-top: 10px; font-weight: 600; }
   .btn-row { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
   .empty { text-align: center; color: var(--muted); padding: 32px 16px; }
   .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 16px; }
@@ -256,6 +264,69 @@
     return rows.length ? '<div class="card now" id="now">' + rows.join('<div style="height:8px"></div>') + '</div>' : '';
   }
   function classLabel(k) { return (((data.timetable || {}).classes || []).find((c) => c.key === k) || {}).label || k; }
+  // класс из графиков сайта («9а», «11», «11а») ↔ класс расписания: точное совпадение, иначе вся параллель (10 и 11 — один класс с профилями)
+  function siteMatch(site, k) {
+    if (site === k) return true;
+    const keys = ((data.timetable || {}).classes || []).map((c) => c.key);
+    return gradeOf(site) === gradeOf(k) && !keys.includes(site);
+  }
+  const WD_ACC = ['понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу', 'воскресенье'];
+  const WD_SHORT = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  // дежурство на день; график на четверть («…на II четверть») — после её конца не показываем
+  function dutyFor(d) {
+    const du = (data.school || {}).duty;
+    if (!du || !du.days) return null;
+    const x = du.days[String((d.getDay() + 6) % 7)];
+    if (!x) return null;
+    const q = String(du.title || '').match(/\b([IV]+)\s+четверт/);
+    const qq = q && (((data.school || {}).year || {}).quarters || []).find((z) => z.name.startsWith(q[1] + ' '));
+    if (qq && (isoDay(d) > qq.end || isoDay(d) < qq.start)) return null;
+    return x;
+  }
+  function viewDuty() {
+    const d = schoolDays(myClasses[0] || '')[0];
+    const x = d && dutyFor(d);
+    if (!x) return '';
+    const iso = isoDay(d), today = isoDay(new Date()), tm = new Date(); tm.setDate(tm.getDate() + 1);
+    const when = iso === today ? 'сегодня' : iso === isoDay(tm) ? 'завтра' : 'в ' + WD_ACC[(d.getDay() + 6) % 7];
+    const mine = myClasses.filter((k) => x.classes.some((c) => siteMatch(c, k)));
+    return '<div class="card duty' + (mine.length ? ' mine' : '') + '"><div><b>🧹 Дежурный класс ' + when + ': ' + esc(x.classes.join(', ')) + '</b>' +
+      (mine.length ? ' — ваш класс' : '') + '</div><div class="muted sub">Классный руководитель: ' + esc(x.teacher) +
+      (x.admin ? ' · дежурный администратор: ' + esc(x.admin) : '') + '</div></div>';
+  }
+  // церемония поднятия флага: с пятницы до понедельника 9:30 — ближайший понедельник; только если в ней участвует выбранный класс
+  function viewFlag() {
+    const f = (data.school || {}).flag;
+    if (!f || !myClasses.length) return '';
+    const now = new Date(), wd = (now.getDay() + 6) % 7, mins = now.getHours() * 60 + now.getMinutes();
+    let mon;
+    if (wd >= 4) { mon = new Date(now); mon.setDate(now.getDate() + 7 - wd); }
+    else if (wd === 0 && mins < 9 * 60 + 30) mon = now;
+    else return '';
+    const iso = isoDay(mon), e = (f.items || []).find((x) => x.date === iso);
+    if (!e) return '';
+    const mine = myClasses.filter((k) => e.classes.some((c) => siteMatch(c, k)));
+    if (!mine.length) return '';
+    return '<div class="card flag"><div class="big">🇷🇺 Поднятие флага ' + (wd === 0 ? 'сегодня' : 'в понедельник, ' + dmy(iso)) + '</div>' +
+      '<div>Участвует ' + (mine.length > 1 ? 'ваши классы ' : 'ваш класс ') + esc(mine.map(classLabel).join(', ')) + '</div>' +
+      '<div class="muted sub">Классы: ' + esc(e.classes.join(', ')) + '<br>Ответственные: ' + esc(e.resp) + '</div>' +
+      (f.pdf ? '<div class="row"><button class="link" data-open="' + esc(f.pdf) + '">График на год (PDF)</button></div>' : '') + '</div>';
+  }
+  // консультации ГИА класса (9 и 11): свёрнуто, в заголовке — что сегодня
+  function giaRow(x, todayWd, withClasses) {
+    return '<div class="gia-row' + (x.wd === todayWd ? ' today' : '') + '"><span class="gd">' + WD_SHORT[x.wd] + '</span><span>' + esc(x.time) + ' — ' + esc(x.subject) +
+      (x.room ? ', каб. ' + esc(x.room) : '') + (withClasses ? ' · ' + esc(x.classes.join(', ')) : '') + ' <span class="muted">' + esc(x.teacher) + '</span></span></div>';
+  }
+  function viewGia(k) {
+    const g = (data.school || {}).gia;
+    if (!g) return '';
+    const it = (g.items || []).filter((x) => x.classes.some((c) => siteMatch(c, k)));
+    if (!it.length) return '';
+    const todayWd = (new Date().getDay() + 6) % 7, td = it.filter((x) => x.wd === todayWd);
+    const head = '🎓 Консультации к ' + (gradeOf(k) >= 10 ? 'ЕГЭ' : 'ОГЭ') + (td.length ? ' · сегодня: ' + td.map((x) => x.subject + ' в ' + x.time.split('–')[0]).join(', ') : ' · ' + it.length + ' в неделю');
+    return '<details class="gia"><summary>' + esc(head) + '</summary>' + it.map((x) => giaRow(x, todayWd, false)).join('') +
+      (g.pdf ? '<div class="row"><button class="link" data-open="' + esc(g.pdf) + '">Расписание консультаций (PDF)</button></div>' : '') + '</details>';
+  }
   // До каникул N дней и ближайшие нерабочие дни
   function viewCountdown() {
     const y = (data.school || {}).year;
@@ -298,10 +369,11 @@
     if (!tt || !(tt.classes || []).length) return '';
     const keys = tt.classes.map((c) => c.key);
     myClasses = myClasses.filter((k) => keys.includes(k));
+    const duty = viewDuty();
     let h = '<h2>Расписание класса</h2><div class="chips wrap">' + tt.classes.map((c) =>
       '<button data-mycls="' + esc(c.key) + '"' + (myClasses.includes(c.key) ? ' class="on"' : '') + '>' + esc(c.label) + '</button>').join('') + '</div>';
-    if (!myClasses.length) return h;
-    h = viewNow() + h;
+    if (!myClasses.length) return duty + h;
+    h = viewNow() + duty + h;
     for (const k of myClasses) {
       const label = (tt.classes.find((c) => c.key === k) || {}).label || k;
       let any = false;
@@ -309,11 +381,12 @@
         const iso = isoDay(d), wd = (d.getDay() + 6) % 7;
         const ch = ((tt.changes || {})[iso] || {}).classes || {};
         const head = WD[wd] + ', ' + d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+        const dx = dutyFor(d), dutyB = dx && dx.classes.some((c) => siteMatch(c, k)) ? '<span class="badge duty">🧹 дежурство</span>' : '';
         let rows;
         if (ch[k]) {
           any = true;
           rows = ch[k].map((l) => lessonRow(tt, l[0], l[1], l[2], l[3])).join('');
-          return '<div class="tt-day"><div class="tt-day-h">' + esc(head) + '<span class="badge">✏️ изменения</span>' +
+          return '<div class="tt-day"><div class="tt-day-h">' + esc(head) + dutyB + '<span class="badge">✏️ изменения</span>' +
             '<button class="link" data-open="' + esc(tt.changes[iso].pdf) + '">PDF</button></div><ol class="tt">' + rows + '</ol></div>';
         }
         const base = ((tt.main || {})[wd] || {})[k] || [];
@@ -321,7 +394,7 @@
         base.forEach((l) => { by[l[0]] = l; });
         rows = top ? Array.from({ length: top }, (_, i) => by[i + 1] ? lessonRow(tt, i + 1, by[i + 1][1], by[i + 1][2], false) : lessonRow(tt, i + 1, null, null, false)).join('')
           : '<li class="muted">Уроков нет</li>';
-        return '<div class="tt-day"><div class="tt-day-h">' + esc(head) + '</div><ol class="tt">' + rows + '</ol></div>';
+        return '<div class="tt-day"><div class="tt-day-h">' + esc(head) + dutyB + '</div><ol class="tt">' + rows + '</ol></div>';
       }).join('');
       const teacher = teacherOf(k), now = new Date(), ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
       const tests = testsMonth(k, ym);
@@ -329,7 +402,7 @@
         (teacher ? '<div class="muted">Классный руководитель: ' + esc(teacher) + '</div>' : '') + days +
         (any ? '<div class="muted">✏️ — изменения, внесённые в расписание (по файлам изменений на сайте школы).</div>' : '') +
         (tests ? '<div class="tests">📝 <b>Контрольные в ' + MON_PREP[now.getMonth()] + '</b> (' + gradeOf(k) + ' классы): ' + tests +
-          '<div class="muted">Точные даты называет учитель; по графику оценочных процедур.</div></div>' : '') + '</div>';
+          '<div class="muted">Точные даты называет учитель; по графику оценочных процедур.</div></div>' : '') + viewGia(k) + '</div>';
     }
     return h;
   }
@@ -376,7 +449,7 @@
 
   function viewSchedule() {
     const list = data.schedule || [];
-    let h = viewCountdown() + viewTimetable() + viewUpcoming();
+    let h = viewCountdown() + viewFlag() + viewTimetable() + viewUpcoming();
     // 4. меню столовой — сразу после расписания, свёрнуто
     if (((data.menu || {}).groups || []).length) h += fold('menu', '🍽 Меню столовой', viewMenu());
     if (list.length && !data.timetable) {   // файл расписания — только если расписание текстом получить не удалось
@@ -586,6 +659,15 @@
     }
     b += '<h3>ГИА (9 и 11 классы)</h3>' + ul(tx.gia) + '<div class="btn-row">' + btn(tests.pdf, '📄 График оценочных процедур (PDF)') + btn(ln.gia, 'ВПР и ГИА на сайте гимназии') + '</div>';
     h += fold('i-tests', '📝 Контрольные и экзамены', b);
+    const gia = sc.gia || {};
+    if ((gia.items || []).length) {
+      const todayWd = (new Date().getDay() + 6) % 7;
+      b = '<div class="muted">' + esc(gia.title || 'Расписание консультаций') + '</div>' +
+        [0, 1, 2, 3, 4, 5].filter((w) => gia.items.some((x) => x.wd === w)).map((w) => '<div class="gia-wd">' + WD[w] + '</div>' +
+          gia.items.filter((x) => x.wd === w).map((x) => giaRow(x, todayWd, true)).join('')).join('') +
+        '<div class="btn-row">' + btn(gia.pdf, '📄 Расписание консультаций (PDF)') + '</div>';
+      h += fold('i-gia', '🎓 Консультации к ОГЭ и ЕГЭ', b);
+    }
     // ---- правила
     h += '<h2>Правила</h2>';
     b = ul(tx.routine) + (page('rights') ? sub('Права и обязанности учащегося', blocksHtml(page('rights').blocks, page('rights').url)) : '') +
