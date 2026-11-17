@@ -308,7 +308,7 @@
     const mine = myClasses.filter((k) => e.classes.some((c) => siteMatch(c, k)));
     if (!mine.length) return '';
     return '<div class="card flag"><div class="big">🇷🇺 Поднятие флага ' + (wd === 0 ? 'сегодня' : 'в понедельник, ' + dmy(iso)) + '</div>' +
-      '<div>Участвует ' + (mine.length > 1 ? 'ваши классы ' : 'ваш класс ') + esc(mine.map(classLabel).join(', ')) + '</div>' +
+      '<div>' + (mine.length > 1 ? 'Участвуют ваши классы ' : 'Участвует ваш класс ') + esc(mine.map(classLabel).join(', ')) + '</div>' +
       '<div class="muted sub">Классы: ' + esc(e.classes.join(', ')) + '<br>Ответственные: ' + esc(e.resp) + '</div>' +
       (f.pdf ? '<div class="row"><button class="link" data-open="' + esc(f.pdf) + '">График на год (PDF)</button></div>' : '') + '</div>';
   }
