@@ -314,7 +314,7 @@
   }
   // консультации ГИА класса (9 и 11): свёрнуто, в заголовке — что сегодня
   function giaRow(x, todayWd, withClasses) {
-    return '<div class="gia-row' + (x.wd === todayWd ? ' today' : '') + '"><span class="gd">' + WD_SHORT[x.wd] + '</span><span>' + esc(x.time) + ' — ' + esc(x.subject) +
+    return '<div class="gia-row' + (x.wd === todayWd ? ' today' : '') + '">' + (withClasses ? '' : '<span class="gd">' + WD_SHORT[x.wd] + '</span>') + '<span>' + esc(x.time) + ' — ' + esc(x.subject) +
       (x.room ? ', каб. ' + esc(x.room) : '') + (withClasses ? ' · ' + esc(x.classes.join(', ')) : '') + ' <span class="muted">' + esc(x.teacher) + '</span></span></div>';
   }
   function viewGia(k) {
