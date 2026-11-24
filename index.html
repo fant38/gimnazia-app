@@ -447,10 +447,26 @@
     return '<details class="card fold"' + (folds[id] ? ' open' : '') + '><summary data-fold="' + id + '">' + esc(title) + '</summary><div class="fold-body">' + body + '</div></details>';
   }
 
+  function viewStudentServices() {
+    const services = [
+      ['🏆 Олимпиады', 'Каталог олимпиад', 'https://max.ru/olimpiady_bot?start'],
+      ['📚 Помощник ученика', 'Подготовка к ВПР, ОГЭ и ЕГЭ', 'https://max.ru/studenthelper_bot?startapp'],
+      ['🎓 Поступай', 'Экзамены и выбор учебного заведения', 'https://max.ru/Postupaibot?start=source_sferum_widget_services'],
+      ['🧩 Викторины и тесты', 'Проверка знаний и соревнования', 'https://max.ru/quizsferum_bot?startapp'],
+      ['🎮 Переменка', 'Познавательные квизы и игры', 'https://max.ru/peremenka_bot?startapp'],
+      ['🔔 Напоминатель', 'Планирование и напоминания', 'https://max.ru/napominatel?startapp'],
+    ];
+    return '<div class="btn-row">' + services.map(([title, description, url]) =>
+      '<button class="btn-wide" data-open="' + esc(url) + '">' + esc(title) +
+      '<span class="muted" style="display:block;font-weight:400;margin-top:2px">' + esc(description) + '</span></button>'
+    ).join('') + '</div>';
+  }
+
   function viewSchedule() {
     const list = data.schedule || [];
     let h = viewCountdown() + viewFlag() + viewTimetable() + viewUpcoming();
-    // 4. меню столовой — сразу после расписания, свёрнуто
+    h += fold('i-services', '📱 Сервисы Сферума', viewStudentServices());
+    // Меню столовой
     if (((data.menu || {}).groups || []).length) h += fold('menu', '🍽 Меню столовой', viewMenu());
     if (list.length && !data.timetable) {   // файл расписания — только если расписание текстом получить не удалось
       if (!list.some((s) => s.id === cls)) cls = list[0].id;
@@ -627,14 +643,6 @@
   }
   function viewInfo() {
     const sc = data.school || {}, tx = sc.texts || {}, ln = sc.links || {}, y = sc.year || {};
-    const services = [
-      ['🏆 Олимпиады', 'Каталог олимпиад', 'https://max.ru/olimpiady_bot?start'],
-      ['📚 Помощник ученика', 'Подготовка к ВПР, ОГЭ и ЕГЭ', 'https://max.ru/studenthelper_bot?startapp'],
-      ['🎓 Поступай', 'Экзамены и выбор учебного заведения', 'https://max.ru/Postupaibot?start=source_sferum_widget_services'],
-      ['🧩 Викторины и тесты', 'Проверка знаний и соревнования', 'https://max.ru/quizsferum_bot?startapp'],
-      ['🎮 Переменка', 'Познавательные квизы и игры', 'https://max.ru/peremenka_bot?startapp'],
-      ['🔔 Напоминатель', 'Планирование и напоминания', 'https://max.ru/napominatel?startapp'],
-    ];
     const parentServices = [
       ['📝 Справка в школу', 'Сообщить об отсутствии ребёнка', 'https://max.ru/certificate_for_school_bot?startapp'],
       ['🏆 Олимпиады', 'Каталог олимпиад для школьников', 'https://max.ru/olimpiady_bot?start'],
@@ -652,8 +660,7 @@
     const serviceCards = (items) => items.map(([title, description, url]) =>
       '<div class="kv"><span><button class="link" style="font-size:15px;font-weight:600;text-align:left" data-open="' + esc(url) + '">' + esc(title) + '</button><div class="muted">' + esc(description) + '</div></span></div>'
     ).join('');
-    let h = '<h2>Сервисы Сферума</h2>' + fold('i-services', '📱 Для учёбы и отдыха', serviceCards(services)) +
-      fold('i-parent-services', '👨‍👩‍👧 Родителям', serviceCards(parentServices)) +
+    let h = '<h2>Сервисы Сферума</h2>' + fold('i-parent-services', '👨‍👩‍👧 Родителям', serviceCards(parentServices)) +
       fold('i-teacher-services', '👩‍🏫 Учителям', serviceCards(teacherServices));
     if (!sc.texts) return h + '<div class="empty">Сведения гимназии пока не загружены</div>';
     h += '<h2>Учёба</h2>';
