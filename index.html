@@ -635,10 +635,26 @@
       ['🎮 Переменка', 'Познавательные квизы и игры', 'https://max.ru/peremenka_bot?startapp'],
       ['🔔 Напоминатель', 'Планирование и напоминания', 'https://max.ru/napominatel?startapp'],
     ];
-    const serviceCards = services.map(([title, description, url]) =>
+    const parentServices = [
+      ['📝 Справка в школу', 'Сообщить об отсутствии ребёнка', 'https://max.ru/certificate_for_school_bot?startapp'],
+      ['🏆 Олимпиады', 'Каталог олимпиад для школьников', 'https://max.ru/olimpiady_bot?start'],
+      ['🎓 Поступай', 'Подготовка к экзаменам и выбор учебного заведения', 'https://max.ru/Postupaibot?start=source_sferum_widget_services'],
+      ['🔔 Напоминатель', 'Планирование и напоминания', 'https://max.ru/napominatel?startapp'],
+    ];
+    const teacherServices = [
+      ['🧩 Викторины и тесты', 'Проверка знаний и соревнования', 'https://max.ru/quizsferum_bot?startapp'],
+      ['🖍 Интерактивная доска', 'Доска для занятий и совместной работы', 'https://max.ru/onlineboard_bot?startapp'],
+      ['📁 Сбор файлов', 'Сбор домашних работ и учебных материалов', 'https://max.ru/file_uploads_bot?startapp'],
+      ['🏆 Олимпиады', 'Каталог олимпиад', 'https://max.ru/olimpiady_bot?start'],
+      ['🔔 Напоминатель', 'Планирование и напоминания', 'https://max.ru/napominatel?startapp'],
+      ['📋 Помощник Рособрнадзора', 'Ответы на вопросы о бюрократической нагрузке', 'https://max.ru/POMSH_RON_BOT'],
+    ];
+    const serviceCards = (items) => items.map(([title, description, url]) =>
       '<div class="kv"><span><button class="link" style="font-size:15px;font-weight:600;text-align:left" data-open="' + esc(url) + '">' + esc(title) + '</button><div class="muted">' + esc(description) + '</div></span></div>'
     ).join('');
-    let h = '<h2>Сервисы Сферума</h2>' + fold('i-services', '📱 Для учёбы и отдыха', serviceCards);
+    let h = '<h2>Сервисы Сферума</h2>' + fold('i-services', '📱 Для учёбы и отдыха', serviceCards(services)) +
+      fold('i-parent-services', '👨‍👩‍👧 Родителям', serviceCards(parentServices)) +
+      fold('i-teacher-services', '👩‍🏫 Учителям', serviceCards(teacherServices));
     if (!sc.texts) return h + '<div class="empty">Сведения гимназии пока не загружены</div>';
     h += '<h2>Учёба</h2>';
     // каникулы и четверти
